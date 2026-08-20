@@ -1,12 +1,7 @@
 package oblitusnumen.bondcalculator.ui.tabs
 
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement.SpaceBetween
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,11 +11,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -35,11 +26,7 @@ import androidx.compose.ui.unit.sp
 import oblitusnumen.bondcalculator.impl.ProfitCalculationResult
 import oblitusnumen.bondcalculator.impl.calculateProfit
 import oblitusnumen.bondcalculator.impl.getSettings
-import oblitusnumen.bondcalculator.ui.DatePicker
-import oblitusnumen.bondcalculator.ui.MainScreenSettings
-import oblitusnumen.bondcalculator.ui.cursorToEnd
-import oblitusnumen.bondcalculator.ui.formatDoublePercentage
-import oblitusnumen.bondcalculator.ui.formatRubbleValue
+import oblitusnumen.bondcalculator.ui.*
 import java.time.LocalDate
 
 

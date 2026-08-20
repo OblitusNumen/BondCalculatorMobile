@@ -3,6 +3,7 @@ package oblitusnumen.bondcalculator.impl
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 @Serializable
 data class Bond(
@@ -55,7 +56,14 @@ data class Bond(
         val priceRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondPrice, bondValue)
 
         val bondReinvestProfit =
-            calculateBondReinvestProfit(settings, priceRatePercentage * .01, couponCount, cleanCoupon, buyCommission, tax)
+            calculateBondReinvestProfit(
+                settings,
+                priceRatePercentage * .01,
+                couponCount,
+                cleanCoupon,
+                buyCommission,
+                tax
+            )
         val effectiveBondProfit: Double = bondReinvestProfit + cleanProfit
         val effectiveBondProfitPercentage: Double =
             calculateYearlyPercentage(settings, investmentPeriod, bondCost, effectiveBondProfit + bondCost)
@@ -134,7 +142,12 @@ data class Bond(
         val result = mutableListOf<Coupon>()
 
         repeat(couponCount) { idx ->
-            result.add(Coupon(bondReturnDate.minusDays((couponPeriodDays * (couponCount - idx - 1)).toLong()), couponValue))
+            result.add(
+                Coupon(
+                    bondReturnDate.minusDays((couponPeriodDays * (couponCount - idx - 1)).toLong()),
+                    couponValue
+                )
+            )
         }
 
         return result
@@ -177,6 +190,19 @@ data class Bond(
                 null
             else
                 Json.decodeFromString(serializer(), string)
+        }
+
+        fun getNkdOffset(
+            accruedDate: LocalDate,
+            accruedInt: Double,
+            couponValue: Double,
+            matDate: LocalDate,
+            couponPeriod: Int
+        ): Int {
+            val duration = (matDate.toEpochDay() - accruedDate.toEpochDay()).toInt()
+            val accruedEsteem =
+                couponValue * (couponPeriod - ((((duration - 2) % couponPeriod) + couponPeriod) % couponPeriod) - 1) / couponPeriod.toDouble()
+            return ((accruedInt - accruedEsteem) * couponPeriod / couponValue).roundToInt()
         }
     }
 

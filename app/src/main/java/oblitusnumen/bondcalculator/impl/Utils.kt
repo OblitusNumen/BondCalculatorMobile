@@ -3,6 +3,7 @@ package oblitusnumen.bondcalculator.impl
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import java.net.URLEncoder
 
 const val DEFAULT_BOND_VALUE = 1000.0
 const val DEFAULT_COUPON_PERIOD = 182
@@ -11,6 +12,10 @@ val DEPOSIT_COMMON_PERIODS = listOf(30, 61, 92, 122, 182, 274, 365, 547, 730, 91
 private const val SHARED_PREFERENCES_NAME: String = "all_preferences"
 fun getSharedPrefs(context: Context): SharedPreferences {
     return context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE)
+}
+
+fun urlEncode(value: String): String {
+    return URLEncoder.encode(value, "UTF-8")
 }
 
 const val SETTINGS_SHARED_PREFS = "settings_shared_prefs"

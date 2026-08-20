@@ -131,7 +131,8 @@ fun MainTopBar(openSettings: () -> Unit, openCreateBond: () -> Unit, search: Str
                     else {
                         focusRequester.freeFocus()
                         focusRequester.requestFocus()
-                    }}) {
+                    }
+                }) {
                     Icon(
                         imageVector = if (search.isEmpty()) Icons.Filled.Search else Icons.Filled.Clear,
                         contentDescription = null,

@@ -30,7 +30,6 @@ import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
 import kotlin.math.absoluteValue
-import kotlin.math.roundToInt
 
 fun Double.toSigFigString(sigFigs: Int = 3): String {
     return BigDecimal(this.toString())
