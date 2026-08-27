@@ -1,4 +1,4 @@
-package oblitusnumen.bondcalculator.ui
+package oblitusnumen.bondcalculator.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import oblitusnumen.bondcalculator.ui.tabs.BondsTab
 import oblitusnumen.bondcalculator.ui.tabs.DepositsTab
+import oblitusnumen.bondcalculator.ui.tabs.MarketTab
 import oblitusnumen.bondcalculator.ui.tabs.ProfitIndexTab
 import java.time.LocalDate
 
@@ -85,7 +86,7 @@ fun MainScreen(
             HorizontalPager(rememberedPagerState, verticalAlignment = Alignment.Top) { page ->
                 when (Tab.entries[page]) {
                     Tab.Market -> {
-                        // TODO:
+                        MarketTab(paddingValues)
                     }
 
                     Tab.Bonds -> {

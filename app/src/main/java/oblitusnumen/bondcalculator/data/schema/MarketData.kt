@@ -1,0 +1,72 @@
+package oblitusnumen.bondcalculator.data.schema
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class MarketData(
+    val secid: String,
+    val bid: Double? = null,
+    val offer: Double? = null,
+    val spread: Double? = null,
+    val bidDepthT: Long? = null,
+    val offerDepthT: Long? = null,
+    val open: Double? = null,
+    val low: Double? = null,
+    val high: Double? = null,
+    val last: Double? = null,
+    val lastChange: Double? = null,
+    val lastChangePrcnt: Double? = null,
+    val value: Double? = null,
+    val yield: Double? = null,
+    val valueUsd: Double? = null,
+    val marketPriceToday: Double? = null,
+    val marketPrice: Double? = null,
+    val lastToPrevPrice: Double? = null,
+    val numTrades: Int? = null,
+    val volToday: Long? = null,
+    val valToday: Long? = null,
+    val valTodayUsd: Long? = null,
+    val boardid: String? = null,
+    val duration: Double? = null,
+    val change: Double? = null,
+    val seqNum: Long? = null,
+    val valTodayRur: Long? = null,
+    val yieldToOffer: Double? = null,
+    val callOptionYield: Double? = null,
+    val callOptionDuration: Double? = null,
+) {
+    companion object {
+        fun fromRow(row: List<String?>): MarketData = MarketData(
+            secid = row.getOrNull(0) ?: "",
+            bid = row.getOrNull(1)?.toDoubleOrNull(),
+            offer = row.getOrNull(3)?.toDoubleOrNull(),
+            spread = row.getOrNull(5)?.toDoubleOrNull(),
+            bidDepthT = row.getOrNull(6)?.toLongOrNull(),
+            offerDepthT = row.getOrNull(7)?.toLongOrNull(),
+            open = row.getOrNull(8)?.toDoubleOrNull(),
+            low = row.getOrNull(9)?.toDoubleOrNull(),
+            high = row.getOrNull(10)?.toDoubleOrNull(),
+            last = row.getOrNull(11)?.toDoubleOrNull(),
+            lastChange = row.getOrNull(12)?.toDoubleOrNull(),
+            lastChangePrcnt = row.getOrNull(13)?.toDoubleOrNull(),
+            value = row.getOrNull(15)?.toDoubleOrNull(),
+            yield = row.getOrNull(16)?.toDoubleOrNull(),
+            valueUsd = row.getOrNull(17)?.toDoubleOrNull(),
+            marketPriceToday = row.getOrNull(26)?.toDoubleOrNull(),
+            marketPrice = row.getOrNull(27)?.toDoubleOrNull(),
+            lastToPrevPrice = row.getOrNull(28)?.toDoubleOrNull(),
+            numTrades = row.getOrNull(29)?.toIntOrNull(),
+            volToday = row.getOrNull(30)?.toLongOrNull(),
+            valToday = row.getOrNull(31)?.toLongOrNull(),
+            valTodayUsd = row.getOrNull(32)?.toLongOrNull(),
+            boardid = row.getOrNull(33),
+            duration = row.getOrNull(36)?.toDoubleOrNull(),
+            change = row.getOrNull(39)?.toDoubleOrNull(),
+            seqNum = row.getOrNull(50)?.toLongOrNull(),
+            valTodayRur = row.getOrNull(52)?.toLongOrNull(),
+            yieldToOffer = row.getOrNull(56)?.toDoubleOrNull(),
+            callOptionYield = row.getOrNull(59)?.toDoubleOrNull(),
+            callOptionDuration = row.getOrNull(60)?.toDoubleOrNull()
+        )
+    }
+}

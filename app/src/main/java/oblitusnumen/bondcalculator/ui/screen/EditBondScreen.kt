@@ -1,4 +1,4 @@
-package oblitusnumen.bondcalculator.ui
+package oblitusnumen.bondcalculator.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -17,6 +17,11 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import oblitusnumen.bondcalculator.impl.*
+import oblitusnumen.bondcalculator.data.schema.LocalBond
+import oblitusnumen.bondcalculator.ui.BackPressButton
+import oblitusnumen.bondcalculator.ui.DatePicker
+import oblitusnumen.bondcalculator.ui.addSetting
+import oblitusnumen.bondcalculator.ui.cursorToEnd
 import java.time.LocalDate
 
 @Composable
@@ -25,7 +30,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
     val datePicker = remember { DatePicker() }
     datePicker.TryCompose()
 
-    var bond by remember { mutableStateOf(getBond(context, bondId) ?: Bond(getBondId(context))) }
+    var bond by remember { mutableStateOf(getBond(context, bondId) ?: LocalBond(getBondId(context))) }
     var nameText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.name).cursorToEnd()) }
     var bondValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.bondValue.toString()).cursorToEnd()) }
     var bondReturnDateText: LocalDate by remember { mutableStateOf(bond.bondReturnDate) }

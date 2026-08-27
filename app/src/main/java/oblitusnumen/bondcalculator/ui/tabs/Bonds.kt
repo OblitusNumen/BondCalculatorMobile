@@ -9,6 +9,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarOutline
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Info
@@ -34,11 +37,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
+import oblitusnumen.bondcalculator.data.network.MoexApiClient
+import oblitusnumen.bondcalculator.data.network.RemoteDataStatus
+import oblitusnumen.bondcalculator.data.schema.BondDetails
+import oblitusnumen.bondcalculator.data.schema.FinanceParameters
+import oblitusnumen.bondcalculator.data.schema.LocalBond
 import oblitusnumen.bondcalculator.impl.*
-import oblitusnumen.bondcalculator.impl.moexapi.MoexApiClient
 import oblitusnumen.bondcalculator.ui.*
+import oblitusnumen.bondcalculator.ui.composition.LocalDataManager
+import oblitusnumen.bondcalculator.ui.screen.MainScreenSettings
 import java.time.LocalDate
-
 
 @Composable
 fun BondsTab(
@@ -50,48 +58,47 @@ fun BondsTab(
 ) {
     val context = LocalContext.current
     var settings by remember { mutableStateOf(getSettings(context)) }
+    var favouriteBonds by remember { mutableStateOf(getBondFavourites(context)) }
     var updater by rememberSaveable { mutableStateOf(true) }
     var bonds by remember(updater) {
-        mutableStateOf(getBonds(context).sortedWith(compareBy<Bond> { it.bondReturnDate }.thenBy { it.name }
+        mutableStateOf(getBonds(context).sortedWith(compareBy<LocalBond> { it.bondReturnDate }.thenBy { it.name }
             .thenBy { it.id }))
     }
 
     var remoteBonds: List<Pair<String, String?>>? by remember(search) { mutableStateOf(null) }
-    var remoteBondsState by remember(search) { mutableStateOf(RemoteBondsState.Loading) }
+    var remoteDataStatus by remember(search) { mutableStateOf(RemoteDataStatus.Loading) }
     val coroutineScope = rememberCoroutineScope()
     val fetchRemote: (query: String) -> Unit = { query ->
         coroutineScope.launch {
-            val service = MoexApiClient()
-
-            try {
-                remoteBonds = service.searchSecurities(query).filter { it.group == "stock_bonds" }
+            MoexApiClient().use({ remoteDataStatus = RemoteDataStatus.Failed }) {
+                remoteBonds = this.searchBonds(query)
                     .filter {
-                        it.shortname?.contains(query, true) ?: false ||
-                                it.name?.contains(query, true) ?: false ||
-                                it.isin?.contains(query, true) ?: false
+                        it.bond.shortname?.contains(query, true) ?: false ||
+                                it.bond.secName?.contains(query, true) ?: false ||
+                                it.bond.isin?.contains(query, true) ?: false
                     }
-                    .map { it.secid to it.shortname }
-                remoteBondsState = RemoteBondsState.Loaded
-            } catch (e: Exception) {
-                remoteBondsState = RemoteBondsState.Failed
-                e.printStackTrace()
-            } finally {
-                service.close()
+                    .map { it.bond.secid to it.bond.shortname }
+                remoteDataStatus = RemoteDataStatus.Loaded
             }
         }
     }
 
     val searchedBonds by remember(bonds, search) {
         mutableStateOf(bonds.filter { it.name.contains(search, true) }
-            .sortedWith(compareBy<Bond> { it.name.indexOf(search) }.thenBy { it.bondReturnDate }.thenBy { it.name }
+            .sortedWith(compareBy<LocalBond> { it.name.indexOf(search) }.thenBy { it.bondReturnDate }.thenBy { it.name }
                 .thenBy { it.id }))
     }
 
     var prevSearch by rememberSaveable { mutableStateOf(search) }
 
-    LaunchedEffect(remoteBondsState, search) {
-        if (remoteBondsState == RemoteBondsState.Loading) {
-            fetchRemote(search)
+    val appDataManager = LocalDataManager.current
+    LaunchedEffect(remoteDataStatus, search) {
+        if (remoteDataStatus == RemoteDataStatus.Loading) {
+            appDataManager.bondRepository.searchBonds(search) { status, details ->
+                remoteBonds = details
+                remoteDataStatus = status
+            }
+//            fetchRemote(search)
         }
     }
 
@@ -106,7 +113,7 @@ fun BondsTab(
 
     Column {
         LazyColumn(Modifier.fillMaxWidth().weight(1f), state = rememberedLazyListState) {
-            if (bonds.isEmpty() && search.isEmpty()) {
+            if (bonds.isEmpty() && favouriteBonds.isEmpty() && search.isEmpty()) {
                 item {
                     Text(
                         "No bonds found",
@@ -141,8 +148,8 @@ fun BondsTab(
                         )
                     }
 
-                    when (remoteBondsState) {
-                        RemoteBondsState.Loaded -> {
+                    when (remoteDataStatus) {
+                        RemoteDataStatus.Loaded -> {
                             if (remoteBonds?.isEmpty() ?: true) {
                                 item {
                                     Text(
@@ -153,80 +160,102 @@ fun BondsTab(
                                 }
                             } else {
                                 for ((secId, shortName) in remoteBonds!!) {
-                                    item(key = secId) {
-                                        var bond: Bond? by remember { mutableStateOf(null) }
-                                        var dataState: RemoteBondsState by remember { mutableStateOf(RemoteBondsState.Loading) }
-                                        val fetchBond: () -> Unit = {
-                                            coroutineScope.launch {
-                                                val service = MoexApiClient()
+                                    item(key = "market:$secId") {
+                                        var bond: LocalBond? by remember { mutableStateOf(null) }
+                                        var dataState: RemoteDataStatus by remember { mutableStateOf(RemoteDataStatus.Loading) }
+                                        val fetchBond: suspend () -> Unit = {
+                                            MoexApiClient().use({ dataState = RemoteDataStatus.Failed }) {
+                                                bond = this.fetchBond(secId)?.toLocalBond()
+                                                dataState = RemoteDataStatus.Loaded
+                                            }
+                                        }
 
-                                                try {
-                                                    bond = service.fetchBond(secId)?.toLocalBond(0)
-                                                    dataState = RemoteBondsState.Loaded
-                                                } catch (e: Exception) {
-                                                    dataState = RemoteBondsState.Failed
-                                                    e.printStackTrace()
-                                                } finally {
-                                                    service.close()
+                                        val displayBond = @Composable { cached: Boolean ->
+                                            if (cached)
+                                                Text("From cache")
+                                            if (bond == null) {
+                                                Text(
+                                                    "Bond $shortName seems to be absent",
+                                                    Modifier.padding(16.dp).fillMaxWidth()
+                                                        .align(CenterHorizontally),
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            } else {
+                                                val calculateResult by remember(
+                                                    bond,
+                                                    settings,
+                                                    rememberedMainScreenSettings.bondsCommission,
+                                                    rememberedMainScreenSettings.bondsTaxed,
+                                                    LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
+                                                    rememberedMainScreenSettings.bondNumberOfLots
+                                                ) {
+                                                    mutableStateOf(
+                                                        bond!!.calculateProfit(
+                                                            settings,
+                                                            rememberedMainScreenSettings.bondsCommission,
+                                                            rememberedMainScreenSettings.bondsTaxed,
+                                                            LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
+                                                            rememberedMainScreenSettings.bondNumberOfLots,
+                                                        )
+                                                    )
+                                                }
+
+                                                var saveBondShown by remember { mutableStateOf(false) }
+                                                if (saveBondShown) {
+                                                    AlertDialog(
+                                                        onDismissRequest = { saveBondShown = false },
+                                                        dismissButton = {
+                                                            TextButton({
+                                                                saveBondShown = false
+                                                            }) { Text("Cancel") }
+                                                        }, confirmButton = {
+                                                            TextButton({
+                                                                val id = getBondId(context)
+                                                                incBondId(context)
+                                                                saveBond(context, bond!!.copy(id = id))
+                                                                updater = !updater
+                                                                saveBondShown = false
+                                                            }) { Text("Save") }
+                                                        }, title = { Text("Save bond $shortName") })
+                                                }
+
+                                                Bond(bond!!, calculateResult, favouriteBonds.contains(secId), {
+                                                    if (it) {
+                                                        favouriteBonds += secId
+                                                    } else {
+                                                        favouriteBonds -= secId
+                                                    }
+                                                    setBondFavourites(context, favouriteBonds)
+                                                }, { saveBondShown = true }) {
+                                                    bond = it
                                                 }
                                             }
                                         }
 
-                                        when (dataState) {
-                                            RemoteBondsState.Loaded -> {
-                                                if (bond == null) {
-                                                    Text(
-                                                        "Bond $shortName seems to be absent",
-                                                        Modifier.padding(16.dp).fillMaxWidth()
-                                                            .align(CenterHorizontally),
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                } else {
-                                                    val calculateResult by remember(
-                                                        bond, settings, rememberedMainScreenSettings.bondsCommission,
-                                                        rememberedMainScreenSettings.bondsTaxed,
-                                                        LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
-                                                        rememberedMainScreenSettings.bondNumberOfLots
-                                                    ) {
-                                                        mutableStateOf(
-                                                            bond!!.calculateProfit(
-                                                                settings,
-                                                                rememberedMainScreenSettings.bondsCommission,
-                                                                rememberedMainScreenSettings.bondsTaxed,
-                                                                LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
-                                                                rememberedMainScreenSettings.bondNumberOfLots,
-                                                            )
-                                                        )
-                                                    }
-
-                                                    var saveBondShown by remember { mutableStateOf(false) }
-                                                    if (saveBondShown) {
-                                                        AlertDialog(
-                                                            onDismissRequest = { saveBondShown = false },
-                                                            dismissButton = {
-                                                                TextButton({
-                                                                    saveBondShown = false
-                                                                }) { Text("Cancel") }
-                                                            }, confirmButton = {
-                                                                TextButton({
-                                                                    val id = getBondId(context)
-                                                                    incBondId(context)
-                                                                    saveBond(context, bond!!.copy(id = id))
-                                                                    updater = !updater
-                                                                    saveBondShown = false
-                                                                }) { Text("Save") }
-                                                            }, title = { Text("Save bond $shortName") })
-                                                    }
-
-                                                    Bond(bond!!, calculateResult, { saveBondShown = true }) {
-                                                        bond = it
-                                                    }
+                                        val dataManager = LocalDataManager.current
+                                        DisposableEffect(secId) {
+                                            val callback: (BondDetails?, RemoteDataStatus) -> Unit =
+                                                { bondDetails, status ->
+                                                    bond = bondDetails?.toLocalBond()
+                                                    dataState = status
                                                 }
+                                            dataManager.bondRepository.getBondSubscribe(secId, callback)
+                                            println("Sub $secId")
+                                            onDispose {
+                                                dataManager.bondRepository.getBondUnsubscribe(secId, callback)
+                                                println("Unsub $secId")
+                                            }
+//                                                    fetchBond()
+                                        }
+
+                                        when (dataState) {
+                                            RemoteDataStatus.Loaded -> {
+                                                displayBond(false)
                                             }
 
-                                            RemoteBondsState.Loading -> {
+                                            RemoteDataStatus.Loading -> {
                                                 LaunchedEffect(Unit) {
-                                                    fetchBond()
+//                                                    fetchBond()
                                                 }
                                                 Text(
                                                     "Loading...",
@@ -235,7 +264,7 @@ fun BondsTab(
                                                 )
                                             }
 
-                                            RemoteBondsState.Failed -> {
+                                            RemoteDataStatus.Failed -> {
                                                 Text(
                                                     "Failed to load bond $shortName",
                                                     Modifier.padding(16.dp).fillMaxWidth().align(CenterHorizontally),
@@ -243,8 +272,10 @@ fun BondsTab(
                                                 )
                                                 IconButton(
                                                     {
-                                                        remoteBondsState = RemoteBondsState.Loading
-                                                        fetchRemote(search)
+                                                        dataState = RemoteDataStatus.Loading
+                                                        coroutineScope.launch {
+                                                            dataManager.bondRepository.refreshBond(secId)
+                                                        }
                                                     },
                                                     Modifier.padding(16.dp).padding(top = 0.dp).fillMaxWidth()
                                                         .align(CenterHorizontally)
@@ -252,13 +283,17 @@ fun BondsTab(
                                                     Icon(Icons.Rounded.Refresh, contentDescription = null)
                                                 }
                                             }
+
+                                            RemoteDataStatus.Cached -> {
+                                                displayBond(true)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
 
-                        RemoteBondsState.Loading -> {
+                        RemoteDataStatus.Loading -> {
                             item {
                                 Text(
                                     "Loading...",
@@ -268,7 +303,7 @@ fun BondsTab(
                             }
                         }
 
-                        RemoteBondsState.Failed -> {
+                        RemoteDataStatus.Failed, RemoteDataStatus.Cached -> {
                             item {
                                 Text(
                                     "Failed to fetch bonds from market",
@@ -277,8 +312,8 @@ fun BondsTab(
                                 )
                                 IconButton(
                                     {
-                                        remoteBondsState = RemoteBondsState.Loading
-                                        fetchRemote(search)
+                                        remoteDataStatus = RemoteDataStatus.Loading
+//                                        fetchRemote(search)
                                     },
                                     Modifier.padding(16.dp).padding(top = 0.dp).fillMaxWidth().align(CenterHorizontally)
                                 ) {
@@ -294,6 +329,134 @@ fun BondsTab(
                             Modifier.padding(16.dp).fillMaxWidth().align(CenterHorizontally),
                             textAlign = TextAlign.Center
                         )
+                    }
+                }
+
+                for (secId in (favouriteBonds - (remoteBonds?.map { it.first }?.toSet() ?: emptySet())).sorted()) {
+                    item(key = "favourite:$secId") {
+                        var bond: LocalBond? by remember { mutableStateOf(null) }
+                        var dataState: RemoteDataStatus by remember { mutableStateOf(RemoteDataStatus.Loading) }
+                        val fetchBond: suspend () -> Unit = {
+                            MoexApiClient().use({ dataState = RemoteDataStatus.Failed }) {
+                                bond = this.fetchBond(secId)?.toLocalBond()
+                                dataState = RemoteDataStatus.Loaded
+                            }
+                        }
+
+                        val displayBond = @Composable { cached: Boolean ->
+                            if (cached)
+                                Text("From cache")
+                            if (bond == null) {
+                                Text(
+                                    "Bond $secId seems to be absent",
+                                    Modifier.padding(16.dp).fillMaxWidth()
+                                        .align(CenterHorizontally),
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                val calculateResult by remember(
+                                    bond,
+                                    settings,
+                                    rememberedMainScreenSettings.bondsCommission,
+                                    rememberedMainScreenSettings.bondsTaxed,
+                                    LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
+                                    rememberedMainScreenSettings.bondNumberOfLots
+                                ) {
+                                    mutableStateOf(
+                                        bond!!.calculateProfit(
+                                            settings,
+                                            rememberedMainScreenSettings.bondsCommission,
+                                            rememberedMainScreenSettings.bondsTaxed,
+                                            LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
+                                            rememberedMainScreenSettings.bondNumberOfLots,
+                                        )
+                                    )
+                                }
+
+                                var saveBondShown by remember { mutableStateOf(false) }
+                                if (saveBondShown) {
+                                    AlertDialog(
+                                        onDismissRequest = { saveBondShown = false },
+                                        dismissButton = {
+                                            TextButton({
+                                                saveBondShown = false
+                                            }) { Text("Cancel") }
+                                        }, confirmButton = {
+                                            TextButton({
+                                                val id = getBondId(context)
+                                                incBondId(context)
+                                                saveBond(context, bond!!.copy(id = id))
+                                                updater = !updater
+                                                saveBondShown = false
+                                            }) { Text("Save") }
+                                        }, title = { Text("Save bond $secId") })
+                                }
+
+                                Bond(bond!!, calculateResult, true, {
+                                    favouriteBonds -= secId
+                                    setBondFavourites(context, favouriteBonds)
+                                }, { saveBondShown = true }) {
+                                    bond = it
+                                }
+                            }
+                        }
+
+                        val dataManager = LocalDataManager.current
+                        DisposableEffect(secId) {
+                            val callback: (BondDetails?, RemoteDataStatus) -> Unit =
+                                { bondDetails, status ->
+                                    bond = bondDetails?.toLocalBond()
+                                    dataState = status
+                                }
+                            dataManager.bondRepository.getBondSubscribe(secId, callback)
+                            println("Sub $secId")
+                            onDispose {
+                                dataManager.bondRepository.getBondUnsubscribe(secId, callback)
+                                println("Unsub $secId")
+                            }
+//                                                    fetchBond()
+                        }
+
+                        when (dataState) {
+                            RemoteDataStatus.Loaded -> {
+                                displayBond(false)
+                            }
+
+                            RemoteDataStatus.Loading -> {
+                                LaunchedEffect(Unit) {
+//                                                    fetchBond()
+                                }
+                                Text(
+                                    "Loading...",
+                                    Modifier.padding(16.dp).fillMaxWidth().align(CenterHorizontally),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            RemoteDataStatus.Failed -> {
+                                Text(
+                                    "Failed to load bond $secId",
+                                    Modifier.padding(16.dp).fillMaxWidth().align(CenterHorizontally),
+                                    textAlign = TextAlign.Center
+                                )
+                                IconButton(
+                                    {
+                                        dataState = RemoteDataStatus.Loading
+                                        coroutineScope.launch {
+                                            dataManager.bondRepository.refreshBond(secId)
+                                        }
+                                    },
+                                    Modifier.padding(16.dp).padding(top = 0.dp).fillMaxWidth()
+                                        .align(CenterHorizontally)
+                                ) {
+                                    Icon(Icons.Rounded.Refresh, contentDescription = null)
+                                }
+                            }
+
+                            RemoteDataStatus.Cached -> {
+                                displayBond(true)
+                            }
+                        }
                     }
                 }
 
@@ -391,15 +554,15 @@ fun BondsTab(
 
 fun LazyListScope.bond(
     key: Any,
-    bond: Bond,
+    bond: LocalBond,
     settings: FinanceParameters,
     hasCommission: Boolean,
     isTaxed: Boolean,
     investmentDate: LocalDate,
     numberOfLots: Int,
-    bonds: List<Bond>,
+    bonds: List<LocalBond>,
     openEditBond: (Int?) -> Unit,
-    onBondSave: (Bond) -> Unit
+    onBondSave: (LocalBond) -> Unit
 ) {
     item(key = key) {
         val calculateResult by remember(settings, hasCommission, isTaxed, investmentDate, numberOfLots, bonds) {
@@ -414,16 +577,18 @@ fun LazyListScope.bond(
             )
         }
 
-        Bond(bond, calculateResult, openEditBond, onBondSave)
+        Bond(bond, calculateResult, null, null, openEditBond, onBondSave)
     }
 }
 
 @Composable
 fun Bond(
-    bond: Bond,
-    calculateResult: Bond.CalculateResult,
-    openEditBond: (Int?) -> Unit,
-    onBondUpdate: (Bond) -> Unit
+    bond: LocalBond,
+    calculateResult: LocalBond.CalculateResult,
+    isFavourite: Boolean? = null,
+    onIsFavouriteUpdate: ((Boolean) -> Unit)? = null,
+    openEditBond: (Int?) -> Unit?,
+    onBondUpdate: (LocalBond) -> Unit
 ) {
     Column(
         Modifier.clickable {
@@ -439,6 +604,11 @@ fun Bond(
             verticalAlignment = CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
+            if (isFavourite != null) {
+                IconButton(onClick = { onIsFavouriteUpdate?.invoke(!isFavourite) }) {
+                    Icon(if (isFavourite) Icons.Default.Star else Icons.Default.StarOutline, contentDescription = null)
+                }
+            }
             Text(bond.name, fontWeight = FontWeight.Bold, modifier = Modifier.padding(4.dp).weight(1f))
             val value = calculateResult.effectiveProfitRatePercentage
             Text(
@@ -597,8 +767,8 @@ fun Bond(
 
 @Composable
 fun AllParametersDialog(
-    bond: Bond,
-    calculateResult: Bond.CalculateResult,
+    bond: LocalBond,
+    calculateResult: LocalBond.CalculateResult,
     onClose: () -> Unit
 ) {
     Dialog(
@@ -755,7 +925,7 @@ fun AllParametersDialog(
 }
 
 @Composable
-fun EfficiencyTable(calculateResult: Bond.CalculateResult) {
+fun EfficiencyTable(calculateResult: LocalBond.CalculateResult) {
     LazyRow(state = rememberLazyListState()) {
         item {
             Column(Modifier.width(IntrinsicSize.Max)) {
@@ -995,8 +1165,3 @@ fun EfficiencyTable(calculateResult: Bond.CalculateResult) {
     }
 }
 
-enum class RemoteBondsState {
-    Loaded,
-    Loading,
-    Failed,
-}

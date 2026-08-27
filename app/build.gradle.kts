@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.ksp)
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -43,6 +44,17 @@ android {
 
 dependencies {
 
+//    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9")
+//    implementation("org.jetbrains.exposed:exposed-core:0.61.0")
+//    implementation("org.jetbrains.exposed:exposed-jdbc:0.61.0")
+//    implementation("com.h2database:h2:2.3.232")
+//    implementation("org.xerial:sqlite-jdbc:3.50.3.0")
+//    implementation(libs.androidx.room3.compiler)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)  // Coroutines & Flow support
+    ksp(libs.androidx.room.compiler)
     implementation("org.slf4j:slf4j-api:2.0.13")
     implementation("io.ktor:ktor-client-core:2.3.12")
     implementation("io.ktor:ktor-client-cio:2.3.12")

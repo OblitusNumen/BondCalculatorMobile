@@ -1,4 +1,4 @@
-package oblitusnumen.bondcalculator.ui
+package oblitusnumen.bondcalculator.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +10,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import oblitusnumen.bondcalculator.impl.getSettings
 import oblitusnumen.bondcalculator.impl.putSettings
+import oblitusnumen.bondcalculator.ui.BackPressButton
+import oblitusnumen.bondcalculator.ui.addSetting
+import oblitusnumen.bondcalculator.ui.cursorToEnd
 
 @Composable
 fun SettingsScreen(backPress: () -> Unit) {

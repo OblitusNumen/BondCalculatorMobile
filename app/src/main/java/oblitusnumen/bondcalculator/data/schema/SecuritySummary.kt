@@ -1,4 +1,4 @@
-package oblitusnumen.bondcalculator.impl.moexapi.schema
+package oblitusnumen.bondcalculator.data.schema
 
 /**
  * Summary of a security from search results.

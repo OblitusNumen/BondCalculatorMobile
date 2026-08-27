@@ -1,4 +1,4 @@
-package oblitusnumen.bondcalculator.impl
+package oblitusnumen.bondcalculator.data.schema
 
 import androidx.compose.runtime.saveable.mapSaver
 import kotlinx.serialization.Serializable

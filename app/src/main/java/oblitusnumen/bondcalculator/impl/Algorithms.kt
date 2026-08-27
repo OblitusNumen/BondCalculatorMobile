@@ -1,5 +1,6 @@
 package oblitusnumen.bondcalculator.impl
 
+import oblitusnumen.bondcalculator.data.schema.FinanceParameters
 import java.time.LocalDate
 import kotlin.math.pow
 
