@@ -2,8 +2,6 @@ package oblitusnumen.bondcalculator.data.schema
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import oblitusnumen.bondcalculator.impl.DEFAULT_BOND_VALUE
-import oblitusnumen.bondcalculator.impl.DEFAULT_COUPON_PERIOD
 import oblitusnumen.bondcalculator.impl.calculateReturn
 import oblitusnumen.bondcalculator.impl.calculateYearlyPercentage
 import java.time.LocalDate
@@ -12,22 +10,24 @@ import kotlin.math.roundToInt
 @Serializable
 data class LocalBond(
     val id: Int,
-    val name: String = "",
-    val bondValue: Double = DEFAULT_BOND_VALUE,
-    val bondReturnDateYear: Int = LocalDate.now().plusDays(1).year,
-    val bondReturnDateMonth: Int = LocalDate.now().plusDays(1).monthValue,
-    val bondReturnDateDay: Int = LocalDate.now().plusDays(1).dayOfMonth,
-    val couponPeriodDays: Int = DEFAULT_COUPON_PERIOD,
-    val couponValue: Double = 0.0,
-    val bondPrice: Double = bondValue,
-    val nkdOffset: Int = 0,
+    val name: String,
+    val bondValue: Double,
+    val bondMaturityEpochDay: Long,
+    val couponPeriodDays: Int,
+    val couponValue: Double,
+    val bondPricePrcnt: Double,
+    val nkdOffset: Int,
 ) {
     val bondReturnDate: LocalDate
-        get() = LocalDate.of(bondReturnDateYear, bondReturnDateMonth, bondReturnDateDay)
+        get() = LocalDate.ofEpochDay(bondMaturityEpochDay)
+
+    val bondPrice: Double
+        get() = bondPricePrcnt * bondValue / 100
 
     fun getInvestmentPeriod(now: LocalDate): Int = (bondReturnDate.toEpochDay() - now.toEpochDay()).toInt()
 
-    fun getCouponCount(investmentPeriod: Int): Int = if (couponPeriodDays == 0) 0 else (investmentPeriod - 1) / couponPeriodDays + 1
+    fun getCouponCount(investmentPeriod: Int): Int =
+        if (couponPeriodDays == 0) 0 else (investmentPeriod - 1) / couponPeriodDays + 1
 
     fun getNkdEsteem(investmentPeriod: Int): Double = if (couponPeriodDays == 0) 0.0 else
         couponValue * (couponPeriodDays - ((((investmentPeriod - nkdOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
@@ -180,20 +180,18 @@ data class LocalBond(
         return cumulativeReinvestReturn - cleanCoupon * couponCount
     }
 
-    fun withBondReturnDate(bondReturnDate: LocalDate): LocalBond = copy(
-        bondReturnDateYear = bondReturnDate.year,
-        bondReturnDateMonth = bondReturnDate.monthValue,
-        bondReturnDateDay = bondReturnDate.dayOfMonth
+    fun withBondMaturityDate(bondMaturity: LocalDate): LocalBond = copy(
+        bondMaturityEpochDay = bondMaturity.toEpochDay()
     )
 
-    override fun toString(): String = Json.Default.encodeToString(serializer(), this)
+    override fun toString(): String = Json.encodeToString(serializer(), this)
 
     companion object {
         fun fromString(string: String?): LocalBond? {
             return if (string.isNullOrEmpty())
                 null
             else
-                Json.Default.decodeFromString(serializer(), string)
+                Json.decodeFromString(serializer(), string)
         }
 
         fun getNkdOffset(

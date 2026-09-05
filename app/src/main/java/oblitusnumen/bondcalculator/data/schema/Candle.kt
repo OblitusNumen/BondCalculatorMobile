@@ -1,5 +1,6 @@
 package oblitusnumen.bondcalculator.data.schema
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -7,11 +8,12 @@ import kotlinx.serialization.json.jsonPrimitive
 import oblitusnumen.bondcalculator.impl.toLocalDateOrNull
 import java.time.LocalDate
 
+@Serializable
 data class Candle(
     val boardId: String,
     val secId: String,
-    val tradeDate: LocalDate?,
-    val tradeSessionDate: LocalDate?,
+    val tradeDateEpochDay: Long?,
+    val tradeSessionDateEpochDay: Long?,
     val shortname: String?,
     val name: String?,
     val open: Double?,
@@ -24,14 +26,19 @@ data class Candle(
     val marketCap: Double?,
     val currencyId: String?,
 ) {
+    val tradeDate: LocalDate?
+        get() = tradeDateEpochDay?.let { LocalDate.ofEpochDay(it) }
+    val tradeSessionDate: LocalDate?
+        get() = tradeSessionDateEpochDay?.let { LocalDate.ofEpochDay(it) }
+
     companion object {
         fun fromMap(map: Map<String, String?>): Candle {
             return Candle(
                 boardId = map["BOARDID"].orEmpty(),
                 secId = map["SECID"].orEmpty(),
 
-                tradeDate = map["TRADEDATE"].toLocalDateOrNull(),
-                tradeSessionDate = map["TRADE_SESSION_DATE"]?.toLocalDateOrNull(),
+                tradeDateEpochDay = map["TRADEDATE"].toLocalDateOrNull()?.toEpochDay(),
+                tradeSessionDateEpochDay = map["TRADE_SESSION_DATE"]?.toLocalDateOrNull()?.toEpochDay(),
 
                 shortname = map["SHORTNAME"],
                 name = map["NAME"],

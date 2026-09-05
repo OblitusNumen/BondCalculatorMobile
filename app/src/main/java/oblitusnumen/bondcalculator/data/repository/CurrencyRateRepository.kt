@@ -45,7 +45,9 @@ class CurrencyRateRepository(
         if (xml == null)
             return null
 
-        return parseRates(xml!!)
+        val rates = parseRates(xml!!)
+        dao.putCurrencies(rates, date)
+        return rates
     }
 
     private fun parseRates(

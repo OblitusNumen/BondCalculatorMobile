@@ -1,26 +1,18 @@
 package oblitusnumen.bondcalculator.data.network
 
 import android.util.Log
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import oblitusnumen.bondcalc.MoexInstrument
 import oblitusnumen.bondcalculator.data.schema.BondDetails
 import oblitusnumen.bondcalculator.data.schema.Candle
@@ -114,7 +106,7 @@ class MoexApiClient : AutoCloseable {
 
             Candle(
                 "null", "null",
-                tradeDate = date,
+                tradeDateEpochDay = date.toEpochDay(),
                 null, null, null,
                 open = row.doubleAt(openIndex),
                 close = row.doubleAt(closeIndex),

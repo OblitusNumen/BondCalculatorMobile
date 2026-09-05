@@ -5,31 +5,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import oblitusnumen.bondcalc.MoexInstrument
-import oblitusnumen.bondcalc.moexapi.CNY_RUB
-import oblitusnumen.bondcalc.moexapi.GLD
-import oblitusnumen.bondcalc.moexapi.IMOEX
-import oblitusnumen.bondcalc.moexapi.USD_RUB
-import oblitusnumen.bondcalculator.data.network.RemoteDataStatus
+import oblitusnumen.bondcalc.moexapi.allInstruments
 import oblitusnumen.bondcalculator.data.schema.Candle
 import oblitusnumen.bondcalculator.data.schema.Security
 import oblitusnumen.bondcalculator.ui.composition.LocalDataManager
-import oblitusnumen.bondcalculator.ui.test.BondScreen
 import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlin.random.Random
 
 @Composable
@@ -40,7 +37,7 @@ fun MarketTab(paddingValues: PaddingValues) {
     val candles = mutableListOf(
         Candle(
             "null", "null",
-            LocalDate.now().minusDays(nDays.toLong() - 1),
+            LocalDate.now().minusDays(nDays.toLong() - 1).toEpochDay(),
             null, null, null,
             100.0, 100.0, 100.0, 100.0, 10.0,
             null, null, null, null
@@ -55,7 +52,7 @@ fun MarketTab(paddingValues: PaddingValues) {
         candles.add(
             Candle(
                 "null", "null",
-                LocalDate.now().minusDays((nDays - it).toLong()),
+                LocalDate.now().minusDays((nDays - it).toLong()).toEpochDay(),
                 null, null, null,
                 open,
                 close, max, min, random.nextDouble() * 100,
@@ -97,11 +94,135 @@ fun MarketTab(paddingValues: PaddingValues) {
                     Text("EUR", Modifier.weight(1f))
                     Text("CNY", Modifier.weight(1f))
                 }
+                val formatString = "%.4f"
                 Row(Modifier.padding(4.dp).fillMaxWidth()) {
-                    Text(ratios["USD"]?.let { "%.4f".format(it) } ?: "--.--", Modifier.weight(1f))
-                    Text(ratios["EUR"]?.let { "%.4f".format(it) } ?: "--.--", Modifier.weight(1f))
-                    Text(ratios["CNY"]?.let { "%.4f".format(it) } ?: "--.--", Modifier.weight(1f))
+                    Text(ratios["USD"]?.let { formatString.format(it) } ?: "--.--", Modifier.weight(1f))
+                    Text(ratios["EUR"]?.let { formatString.format(it) } ?: "--.--", Modifier.weight(1f))
+                    Text(ratios["CNY"]?.let { formatString.format(it) } ?: "--.--", Modifier.weight(1f))
                 }
+                var rubDouble by rememberSaveable { mutableStateOf(100.0) }
+                var rubString by rememberSaveable { mutableStateOf(formatString.format(rubDouble)) }
+                var usdString by rememberSaveable(ratios) {
+                    mutableStateOf(
+                        formatString.format(
+                            rubDouble / (ratios["USD"] ?: 1.0)
+                        )
+                    )
+                }
+                var eurString by rememberSaveable(ratios) {
+                    mutableStateOf(
+                        formatString.format(
+                            rubDouble / (ratios["EUR"] ?: 1.0)
+                        )
+                    )
+                }
+                var cnyString by rememberSaveable(ratios) {
+                    mutableStateOf(
+                        formatString.format(
+                            rubDouble / (ratios["CNY"] ?: 1.0)
+                        )
+                    )
+                }
+
+                //rub
+                OutlinedTextField(
+                    value = rubString,
+                    onValueChange = {
+                        try {
+                            rubString = it.replace(',', '.')
+                            rubDouble = rubString.toDouble()
+                            usdString = formatString.format(rubDouble / (ratios["USD"] ?: 1.0))
+                            eurString = formatString.format(rubDouble / (ratios["EUR"] ?: 1.0))
+                            cnyString = formatString.format(rubDouble / (ratios["CNY"] ?: 1.0))
+                        } catch (_: Exception) {
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).weight(1f),
+                    trailingIcon = {
+                        Text("₽")
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    maxLines = 1,
+                )
+
+                //usd
+                OutlinedTextField(
+                    value = usdString,
+                    onValueChange = {
+                        try {
+                            usdString = it.replace(',', '.')
+                            rubDouble = usdString.toDouble() * (ratios["USD"] ?: 1.0)
+                            rubString = formatString.format(rubDouble)
+                            eurString = formatString.format(rubDouble / (ratios["EUR"] ?: 1.0))
+                            cnyString = formatString.format(rubDouble / (ratios["CNY"] ?: 1.0))
+                        } catch (_: Exception) {
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).weight(1f),
+                    trailingIcon = {
+                        Text("$")
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    maxLines = 1,
+                )
+
+                //eur
+                OutlinedTextField(
+                    value = eurString,
+                    onValueChange = {
+                        try {
+                            eurString = it.replace(',', '.')
+                            rubDouble = eurString.toDouble() * (ratios["EUR"] ?: 1.0)
+                            rubString = formatString.format(rubDouble)
+                            usdString = formatString.format(rubDouble / (ratios["USD"] ?: 1.0))
+                            cnyString = formatString.format(rubDouble / (ratios["CNY"] ?: 1.0))
+                        } catch (_: Exception) {
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).weight(1f),
+                    trailingIcon = {
+                        Text("€")
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    maxLines = 1,
+                )
+
+                //cny
+                OutlinedTextField(
+                    value = cnyString,
+                    onValueChange = {
+                        try {
+                            cnyString = it.replace(',', '.')
+                            rubDouble = cnyString.toDouble() * (ratios["CNY"] ?: 1.0)
+                            rubString = formatString.format(rubDouble)
+                            usdString = formatString.format(rubDouble / (ratios["USD"] ?: 1.0))
+                            eurString = formatString.format(rubDouble / (ratios["EUR"] ?: 1.0))
+                        } catch (_: Exception) {
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).weight(1f),
+                    trailingIcon = {
+                        Text("¥")
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    maxLines = 1,
+                )
 
                 LaunchedEffect(ratios) {
                     if (ratios.isEmpty()) {
@@ -112,25 +233,16 @@ fun MarketTab(paddingValues: PaddingValues) {
                 Spacer(Modifier.padding(4.dp))
             }
 
-            item {
-                Row(
-                    Modifier.padding(4.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Instrument(IMOEX, Modifier.weight(1f))
-                    Instrument(GLD, Modifier.weight(1f))
-                }
-            }
-
-            item {
-                Row(
-                    Modifier.padding(4.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Instrument(USD_RUB, Modifier.weight(1f))
-                    Instrument(CNY_RUB, Modifier.weight(1f))
+            repeat((allInstruments.size + 1) / 2) {
+                item {
+                    Row(
+                        Modifier.padding(4.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Instrument(allInstruments[it * 2], Modifier.weight(1f))
+                        Instrument(allInstruments[it * 2 + 1], Modifier.weight(1f))
+                    }
                 }
             }
 
@@ -143,7 +255,6 @@ fun MarketTab(paddingValues: PaddingValues) {
 
 @Composable
 fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
-    val coroutineScope = rememberCoroutineScope()
     var candles: List<Candle>? by remember { mutableStateOf(null) }
     var now: Pair<Double?, Double?>? by remember { mutableStateOf(null) }
 
@@ -179,7 +290,7 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
             }
         }
         DisposableEffect(Unit) {
-            val updateCallback: (Security?, RemoteDataStatus) -> Unit = { security, status ->
+            val updateCallback: (Security?, LocalDateTime?) -> Unit = { security, updateTime ->
                 now = security?.lastPrice to security?.lastToPrevPrcnt
             }
 
@@ -190,8 +301,25 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
             }
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            candles?.let { CandlestickChart(it, Modifier.padding(4.dp).fillMaxWidth()) }
+        val coroutineScope = rememberCoroutineScope()
+        Box(Modifier.padding(4.dp).height(100.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            if (candles == null) {
+                IconButton(
+                    {
+                        coroutineScope.launch {
+                            candles = dataManager.candleRepository.getCandles(
+                                LocalDate.now().minusMonths(1),
+                                LocalDate.now(),
+                                instrument
+                            )
+                        }
+                    }
+                ) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = null)
+                }
+            } else {
+                CandlestickChart(candles!!, Modifier.fillMaxWidth())
+            }
         }
     }
 }
@@ -272,7 +400,7 @@ fun CandlestickChart(
             val yHigh = y(high)
             val yLow = y(low)
 
-            val bullish = close >= open
+            close >= open
 
             /*
              * Цвета здесь специально не фиксирую.

@@ -2,6 +2,9 @@ package oblitusnumen.bondcalculator.data.database.entity
 
 import androidx.room.Entity
 import androidx.room.Index
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 @Entity(
     tableName = "securities",
@@ -54,4 +57,12 @@ data class SecurityEntity(
     val lastToPrevPrcnt: Double?,
 
     val sysTimeEpochSecond: Long?
-)
+) {
+    fun getLocalDateTime(zoneId: ZoneId = ZoneId.systemDefault()): LocalDateTime? =
+        sysTimeEpochSecond?.let {
+            LocalDateTime.ofInstant(
+                Instant.ofEpochSecond(it),
+                zoneId
+            )
+        }
+}

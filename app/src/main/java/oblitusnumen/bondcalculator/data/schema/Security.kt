@@ -5,9 +5,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import oblitusnumen.bondcalculator.impl.toLocalDateOrNull
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
+import java.time.*
 
 data class Security(
     val secId: String,
@@ -39,6 +37,14 @@ data class Security(
     val lastToPrevPrcnt: Double?,
     val sysTimeEpochSecond: Long?,
 ) {
+    fun getLocalDateTime(zoneId: ZoneId = ZoneId.systemDefault()): LocalDateTime? =
+        sysTimeEpochSecond?.let {
+            LocalDateTime.ofInstant(
+                Instant.ofEpochSecond(it),
+                zoneId
+            )
+        }
+
     companion object {
         fun fromMap(map: Map<String, String?>): Security {
             return Security(
@@ -68,7 +74,8 @@ data class Security(
                 valueToday = map["VALTODAY"]?.toDoubleOrNull(),
                 tradeDate = map["TRADEDATE"]?.toLocalDateOrNull(),
                 tradeSessionDate = map["TRADE_SESSION_DATE"]?.toLocalDateOrNull(),
-                lastToPrevPrcnt = map["LASTTOPREVPRICE"]?.toDoubleOrNull() ?: map["LASTCHANGEPRC"]?.toDoubleOrNull(),// FIXME:
+                lastToPrevPrcnt = map["LASTTOPREVPRICE"]?.toDoubleOrNull()
+                    ?: map["LASTCHANGEPRC"]?.toDoubleOrNull(),// FIXME:
                 sysTimeEpochSecond = map["SYSTIME"]?.let {
                     val dateAndTime = it.split(" ")
                     LocalDate.parse(dateAndTime[0]).atTime(LocalTime.parse(dateAndTime[1]))

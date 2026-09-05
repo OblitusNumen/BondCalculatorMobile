@@ -8,18 +8,22 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BondDetailsDao {
-    @Query("""
+    @Query(
+        """
         SELECT * 
         FROM bond_details 
         WHERE secid = :secid
-    """)
+    """
+    )
     suspend fun get(secid: String): BondDetailsEntity?
 
-    @Query("""
+    @Query(
+        """
         SELECT * 
         FROM bond_details 
         WHERE secid = :secid
-    """)
+    """
+    )
     fun observe(secid: String): Flow<BondDetailsEntity?>
 
     @Upsert

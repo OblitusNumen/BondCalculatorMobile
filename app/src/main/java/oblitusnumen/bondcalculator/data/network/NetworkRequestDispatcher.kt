@@ -1,11 +1,10 @@
 package oblitusnumen.bondcalculator.data.network
 
-import io.ktor.client.call.body
 import io.ktor.client.request.*
-import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.serialization.json.JsonObject
+import oblitusnumen.bondcalculator.data.network.NetworkRequestDispatcher.Companion.Retries
 import java.util.concurrent.ConcurrentHashMap
 
 // FIXME:
@@ -70,6 +69,8 @@ class NetworkRequestDispatcher(val maxConcurrentRequests: Int = 20) : AutoClosea
             } finally {
                 blocker--
             }
+            if (retriesLeft != 0)
+                delay(500)
         }
     }
 

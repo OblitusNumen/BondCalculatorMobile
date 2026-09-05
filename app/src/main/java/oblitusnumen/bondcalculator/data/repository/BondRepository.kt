@@ -2,8 +2,7 @@ package oblitusnumen.bondcalculator.data.repository
 
 import BondDetailsEntity
 import android.util.Log
-import io.ktor.client.call.body
-import io.ktor.client.request.*
+import io.ktor.client.call.*
 import io.ktor.util.date.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -23,7 +22,9 @@ import oblitusnumen.bondcalculator.data.schema.SecuritySummary
 import oblitusnumen.bondcalculator.impl.add
 import oblitusnumen.bondcalculator.impl.remove
 import oblitusnumen.bondcalculator.impl.urlEncode
+import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 
 class BondRepository(
@@ -35,7 +36,7 @@ class BondRepository(
 
     private lateinit var coroutineScope: CoroutineScope
 
-    private val bondSubscribers = ConcurrentHashMap<String, MutableSet<(BondDetails?, RemoteDataStatus) -> Unit>>()
+    private val bondSubscribers = ConcurrentHashMap<String, MutableSet<(BondDetails?, LocalDateTime?) -> Unit>>()
 
 //    override fun observeBond(secid: String): Flow<BondDetails?> {
 //        return dao.observe(secid)
@@ -45,15 +46,15 @@ class BondRepository(
     private fun updateSubs(
         secid: String,
         bondDetails: BondDetails?,
-        status: RemoteDataStatus
+        lastUpdated: LocalDateTime?
     ) {
         bondSubscribers[secid]?.forEach {
-            it(bondDetails, status)
+            it(bondDetails, lastUpdated)
         }
     }
 
     // FIXME: no status; pass lastupdtime
-    fun getBondSubscribe(secid: String, callback: (BondDetails?, RemoteDataStatus) -> Unit) {
+    fun getBondSubscribe(secid: String, callback: (BondDetails?, LocalDateTime?) -> Unit) {
         if (bondSubscribers.add(secid, callback) != 0) {
             println("sub >1 subs $secid")
             coroutineScope.launch {
@@ -61,7 +62,7 @@ class BondRepository(
                 val cached = dao.get(secid)
                 callback(
                     cached?.toDomain(),
-                    if (cached == null) RemoteDataStatus.Loading else RemoteDataStatus.Loaded
+                    cached?.getCachedAt()
                 )
             }
             return
@@ -69,11 +70,11 @@ class BondRepository(
         coroutineScope.launch {
             println("run data get $secid")
             var prev = dao.get(secid)
-            var status = if (prev == null) RemoteDataStatus.Loading else RemoteDataStatus.Cached
+            if (prev == null) RemoteDataStatus.Loading else RemoteDataStatus.Cached
             updateSubs(
                 secid,
                 prev?.toDomain(),
-                status
+                prev?.getCachedAt()
             )
             if (prev != null)
                 println("cache $secid")
@@ -85,11 +86,10 @@ class BondRepository(
                     {},
                     "bond:$secid",
                     onException = {
-                        status = if (prev == null) RemoteDataStatus.Loading else RemoteDataStatus.Cached
                         updateSubs(
                             secid,
                             prev?.toDomain(),
-                            status
+                            prev?.getCachedAt()
                         )
                         println("dispatcher exception:$it $secid")
                     }
@@ -98,11 +98,10 @@ class BondRepository(
                     val body: JsonObject? = response.body()
                     if (body == null) {
                         // FIXME: loading failed/loading
-                        status = RemoteDataStatus.Loaded
                         updateSubs(
                             secid,
                             null,
-                            status
+                            LocalDateTime.now()
                         )
                         return@get
                     }
@@ -129,14 +128,13 @@ class BondRepository(
                             )
                     }
                     prev = bond?.toEntity(getTimeMillis())
-                    status = RemoteDataStatus.Loaded
                     prev?.let {
                         dao.upsert(it)
                     }
                     updateSubs(
                         secid,
                         bond,
-                        status
+                        prev?.getCachedAt()
                     )
                 }
 
@@ -145,7 +143,7 @@ class BondRepository(
         }
     }
 
-    fun getBondUnsubscribe(secid: String, callback: (BondDetails?, RemoteDataStatus) -> Unit) {
+    fun getBondUnsubscribe(secid: String, callback: (BondDetails?, LocalDateTime?) -> Unit) {
         bondSubscribers.remove(secid, callback)
     }
 
@@ -153,7 +151,7 @@ class BondRepository(
     fun refreshBond(secid: String) {
         coroutineScope.launch {
             var prev: BondDetailsEntity? = null
-            var status = if (prev == null) RemoteDataStatus.Loading else RemoteDataStatus.Cached
+            if (prev == null) RemoteDataStatus.Loading else RemoteDataStatus.Cached
             println("run request $secid")
             dispatcher.get(
                 "$MOEX_ISS/engines/stock/markets/bonds/securities/$secid.json",
@@ -173,11 +171,10 @@ class BondRepository(
                 val body: JsonObject? = response.body()
                 if (body == null) {
                     // FIXME: loading failed/loading
-                    status = RemoteDataStatus.Loaded
                     updateSubs(
                         secid,
                         null,
-                        status
+                        LocalDateTime.now()
                     )
                     return@get
                 }
@@ -204,14 +201,13 @@ class BondRepository(
                         )
                 }
                 prev = bond?.toEntity(getTimeMillis())
-                status = RemoteDataStatus.Loaded
                 prev?.let {
                     dao.upsert(it)
                 }
                 updateSubs(
                     secid,
                     bond,
-                    status
+                    prev?.getCachedAt()
                 )
             }
         }
@@ -272,8 +268,14 @@ class BondRepository(
         }
 
         if (status == RemoteDataStatus.Loading) {
-            status = RemoteDataStatus.Failed
-            callback(status, null)
+            status = RemoteDataStatus.Cached
+            val cached = AtomicReference<List<Pair<String, String?>>?>(null)
+            Thread {
+                cached.set(dao.search(query).map { it.secid to it.shortName })
+            }.start()
+            while (cached.get() == null)
+                delay(100)
+            callback(status, cached.get())
         }
     }
 

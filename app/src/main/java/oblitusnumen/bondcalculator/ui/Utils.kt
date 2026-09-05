@@ -29,7 +29,46 @@ import androidx.compose.ui.unit.sp
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import kotlin.math.absoluteValue
+
+fun LocalDateTime?.toLastUpdateString(): String {
+    return "UPD: ${this?.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss"))}"
+}
+
+fun LocalDateTime.toLastUpdateString(other: LocalDateTime): String {
+    val duration = Duration.between(other, this)
+    val days = duration.toDays()
+    val hours = duration.toHours()
+    val minutes = duration.toMinutes()
+    duration.seconds
+
+    return if (days.toInt() == 0)
+        if (hours.toInt() == 0)
+            if (minutes.toInt() == 0)
+                "just now"
+            else
+                "${minutes}m ago"
+        else
+            "${hours}h ago"
+    else
+        "outdated"
+
+//    return if (days.toInt() == 0)
+//        if (hours.toInt() == 0)
+//            if (minutes.toInt() == 0)
+//                "${seconds}s ago"
+//            else
+//                "${minutes}min ago"
+//        else
+//            "${hours}h ago"
+//    else if (days < 30)
+//        "${days}d ago"
+//    else
+//        "a long time ago"
+}
 
 fun Double.toSigFigString(sigFigs: Int = 3): String {
     return BigDecimal(this.toString())

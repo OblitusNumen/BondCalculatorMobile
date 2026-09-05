@@ -3,6 +3,8 @@ package oblitusnumen.bondcalculator.impl
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import kotlinx.serialization.json.Json
+import oblitusnumen.bondcalculator.data.schema.CashFlow
 import oblitusnumen.bondcalculator.data.schema.FinanceParameters
 import oblitusnumen.bondcalculator.data.schema.LocalBond
 import java.net.URLEncoder
@@ -109,3 +111,11 @@ fun getBondFavourites(context: Context): Set<String> =
 fun setBondFavourites(context: Context, value: Set<String>) =
     getSharedPrefs(context).edit { putStringSet(BOND_FAVOURITES_SHARED_PREFS, value) }
 
+const val XIRR_CASH_FLOWS_SHARED_PREFS = "xirr_cash_flows_shared_prefs"
+val DEFAULT_XIRR_CASH_FLOWS: List<CashFlow> = emptyList()
+fun getXirrCashFlows(context: Context): List<CashFlow> =
+    getSharedPrefs(context).getString(XIRR_CASH_FLOWS_SHARED_PREFS, null)?.let { Json.decodeFromString(it) }
+        ?: DEFAULT_XIRR_CASH_FLOWS
+
+fun saveXirrCashFlows(context: Context, value: List<CashFlow>) =
+    getSharedPrefs(context).edit { putString(XIRR_CASH_FLOWS_SHARED_PREFS, Json.encodeToString(value)) }

@@ -9,16 +9,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import oblitusnumen.bondcalculator.data.AppDataManager
 import oblitusnumen.bondcalculator.ui.composition.LocalDataManager
-import oblitusnumen.bondcalculator.ui.screen.EditBondScreen
-import oblitusnumen.bondcalculator.ui.screen.MainScreen
-import oblitusnumen.bondcalculator.ui.screen.SettingsScreen
-import oblitusnumen.bondcalculator.ui.screen.Tab
-import oblitusnumen.bondcalculator.ui.screen.rememberMainScreenSettings
+import oblitusnumen.bondcalculator.ui.screen.*
 import oblitusnumen.bondcalculator.ui.test.ActivityContainer
 import oblitusnumen.bondcalculator.ui.test.LocalActivityContainer
 import oblitusnumen.bondcalculator.ui.theme.BondCalculatorMobileTheme
@@ -45,7 +40,10 @@ class MainActivity : ComponentActivity() {
             }
 
             BondCalculatorMobileTheme {
-                CompositionLocalProvider(LocalActivityContainer provides container, LocalDataManager provides dataManager) {
+                CompositionLocalProvider(
+                    LocalActivityContainer provides container,
+                    LocalDataManager provides dataManager
+                ) {
                     var openScreen by rememberSaveable { mutableStateOf(OpenScreen.Main) }
                     var editBondId: Int? by rememberSaveable { mutableStateOf(null) }
                     val mainScreenSettings = rememberMainScreenSettings()

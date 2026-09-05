@@ -1,16 +1,14 @@
 package oblitusnumen.bondcalculator.data.network
 
 import io.ktor.client.*
-import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
-import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.utils.io.*
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import java.io.Closeable
 
 class HttpClient : Closeable {

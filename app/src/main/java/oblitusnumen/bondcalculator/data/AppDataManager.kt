@@ -1,5 +1,6 @@
 package oblitusnumen.bondcalculator.data
 
+import AppDatabase
 import android.content.Context
 import androidx.room.Room
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +32,7 @@ class AppDataManager(context: Context) : AutoCloseable {
 
     val candleRepository: CandleRepository =
         CandleRepository(
-            dao = CandleDao(),
+            dao = CandleDao(context.cacheDir),
             dispatcher = dispatcher
         )
 

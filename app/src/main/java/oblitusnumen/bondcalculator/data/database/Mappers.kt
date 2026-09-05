@@ -4,13 +4,7 @@ import BondDetailsEntity
 import oblitusnumen.bondcalculator.data.database.entity.CandleEntity
 import oblitusnumen.bondcalculator.data.database.entity.CurrencyRateEntity
 import oblitusnumen.bondcalculator.data.database.entity.SecurityEntity
-import oblitusnumen.bondcalculator.data.schema.Bond
-import oblitusnumen.bondcalculator.data.schema.BondDetails
-import oblitusnumen.bondcalculator.data.schema.Candle
-import oblitusnumen.bondcalculator.data.schema.CurrencyRate
-import oblitusnumen.bondcalculator.data.schema.DataVersion
-import oblitusnumen.bondcalculator.data.schema.MarketData
-import oblitusnumen.bondcalculator.data.schema.Security
+import oblitusnumen.bondcalculator.data.schema.*
 import java.time.LocalDate
 
 fun BondDetailsEntity.toDomain(): BondDetails =
@@ -85,6 +79,7 @@ fun BondDetailsEntity.toDomain(): BondDetails =
         )
     )
 
+// FIXME: get systime instead of time cached
 fun BondDetails.toEntity(
     cachedAt: Long
 ): BondDetailsEntity {
@@ -164,8 +159,8 @@ fun CandleEntity.toDomain(): Candle =
     Candle(
         boardId = boardId,
         secId = secId,
-        tradeDate = LocalDate.ofEpochDay(tradeDateEpochDay),
-        tradeSessionDate = tradeSessionDateEpochDay?.let { LocalDate.ofEpochDay(it) },
+        tradeDateEpochDay = tradeDateEpochDay,
+        tradeSessionDateEpochDay = tradeSessionDateEpochDay,
         shortname = shortname,
         name = name,
         open = open,
@@ -180,13 +175,13 @@ fun CandleEntity.toDomain(): Candle =
     )
 
 fun Candle.toEntity(): CandleEntity? {
-    val date = tradeDate ?: return null
+    val date = tradeDateEpochDay ?: return null
 
     return CandleEntity(
         boardId = boardId,
         secId = secId,
-        tradeDateEpochDay = date.toEpochDay(),
-        tradeSessionDateEpochDay = tradeSessionDate?.toEpochDay(),
+        tradeDateEpochDay = date,
+        tradeSessionDateEpochDay = tradeSessionDateEpochDay,
         shortname = shortname,
         name = name,
         open = open,

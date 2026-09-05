@@ -77,13 +77,14 @@ fun DepositsTab(paddingValues: PaddingValues) {
                 OutlinedTextField(
                     value = rateText,
                     onValueChange = {
+                        val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
-                            if (it.text.isNotEmpty()) {
-                                rate = it.text.toDouble()
+                            if (fieldValue.text.isNotEmpty()) {
+                                rate = fieldValue.text.toDouble()
                                 setDepositRate(context, rate)
                                 calculationResult = calculateResult()
                             }
-                            rateText = it
+                            rateText = fieldValue
                         } catch (_: Exception) {
                         }
                     },
@@ -103,13 +104,14 @@ fun DepositsTab(paddingValues: PaddingValues) {
                 OutlinedTextField(
                     value = periodText,
                     onValueChange = {
+                        val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
-                            if (it.text.isNotEmpty()) {
-                                period = it.text.toInt()
+                            if (fieldValue.text.isNotEmpty()) {
+                                period = fieldValue.text.toInt()
                                 setDepositPeriod(context, period)
                                 calculationResult = calculateResult()
                             }
-                            periodText = it
+                            periodText = fieldValue
                         } catch (_: Exception) {
                         }
                     },

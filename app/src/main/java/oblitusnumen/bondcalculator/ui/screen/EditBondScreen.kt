@@ -16,12 +16,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import oblitusnumen.bondcalculator.impl.*
 import oblitusnumen.bondcalculator.data.schema.LocalBond
-import oblitusnumen.bondcalculator.ui.BackPressButton
-import oblitusnumen.bondcalculator.ui.DatePicker
-import oblitusnumen.bondcalculator.ui.addSetting
-import oblitusnumen.bondcalculator.ui.cursorToEnd
+import oblitusnumen.bondcalculator.impl.*
+import oblitusnumen.bondcalculator.ui.*
 import java.time.LocalDate
 
 @Composable
@@ -30,20 +27,41 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
     val datePicker = remember { DatePicker() }
     datePicker.TryCompose()
 
-    var bond by remember { mutableStateOf(getBond(context, bondId) ?: LocalBond(getBondId(context))) }
+    var bond by remember {
+        mutableStateOf(
+            getBond(context, bondId) ?: LocalBond(
+                id = getBondId(context), name = "",
+                bondValue = DEFAULT_BOND_VALUE,
+                bondMaturityEpochDay = LocalDate.now().plusDays(1).toEpochDay(),
+                couponPeriodDays = DEFAULT_COUPON_PERIOD,
+                couponValue = 0.0,
+                bondPricePrcnt = 100.0,
+                nkdOffset = 0
+            )
+        )
+    }
     var nameText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.name).cursorToEnd()) }
     var bondValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.bondValue.toString()).cursorToEnd()) }
     var bondReturnDateText: LocalDate by remember { mutableStateOf(bond.bondReturnDate) }
     var couponPeriodDaysText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.couponPeriodDays.toString()).cursorToEnd()) }
     var couponValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.couponValue.toString()).cursorToEnd()) }
-    var bondPriceText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.bondPrice.toString()).cursorToEnd()) }
+    var bondPriceText: TextFieldValue by remember {
+        mutableStateOf(
+            TextFieldValue(
+                formatDouble(
+                    bond.bondPricePrcnt,
+                    4
+                )
+            ).cursorToEnd()
+        )
+    }
     var nkdOffsetText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.nkdOffset.toString()).cursorToEnd()) }
     val bondPriceFocusRequester = remember { FocusRequester() }
     val bondValueFocusRequester = remember { FocusRequester() }
     val couponPeriodDaysFocusRequester = remember { FocusRequester() }
     val selectBondReturnDate = {
         datePicker.datePick({ couponPeriodDaysFocusRequester.requestFocus() }, {
-            bond = bond.withBondReturnDate(it)
+            bond = bond.withBondMaturityDate(it)
             bondReturnDateText = it
             couponPeriodDaysFocusRequester.requestFocus()
         }, bondReturnDateText)
@@ -77,7 +95,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
                 "Bond price", bondPriceText, {
                     try {
                         if (it.text.isNotEmpty())
-                            bond = bond.copy(bondPrice = it.text.toDouble())
+                            bond = bond.copy(bondPricePrcnt = it.text.toDouble())
                         bondPriceText = it
                     } catch (_: Exception) {
                     }
@@ -86,7 +104,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
                 focusRequester = bondPriceFocusRequester,
                 nextFocusRequester = bondValueFocusRequester
             ) {
-                Text("₽")
+                Text("%")
             }
 
             addSetting(

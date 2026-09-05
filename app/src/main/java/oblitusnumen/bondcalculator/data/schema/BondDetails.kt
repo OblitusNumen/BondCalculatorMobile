@@ -4,7 +4,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import oblitusnumen.bondcalculator.data.schema.LocalBond
 import java.time.LocalDate
 
 data class BondDetails(
@@ -14,7 +13,7 @@ data class BondDetails(
     val dataVersion: DataVersion
 ) {
     fun changePrcAccurate() =
-        marketData.last?.times(100.0)?.div(bond.prevPrice?:100.0)?.minus(100.0)
+        marketData.last?.times(100.0)?.div(bond.prevPrice ?: 100.0)?.minus(100.0)
 
     fun toLocalBond(id: Int = 0): LocalBond {
         val matDate = LocalDate.parse(bond.matDate!!)
@@ -22,12 +21,10 @@ data class BondDetails(
             id,
             bond.shortname!!,
             bond.faceValue!!,
-            matDate.year,
-            matDate.monthValue,
-            matDate.dayOfMonth,
+            matDate.toEpochDay(),
             bond.couponPeriod!!,
             bond.couponValue!!,
-            (marketData.last ?: 100.0) * bond.faceValue / 100,
+            marketData.last ?: 100.0,
             LocalBond.getNkdOffset(
                 LocalDate.parse(dataVersion.tradeSessionDate),
                 bond.accruedInt ?: 0.0,
@@ -72,8 +69,7 @@ data class BondDetails(
             //data version
             val versionData =
                 root["dataversion"]?.jsonObject ?: throw IllegalStateException("No 'dataversion' block")
-            val versionDataColArray =
-                versionData["columns"]?.jsonArray ?: throw IllegalStateException("No 'columns' array")
+            versionData["columns"]?.jsonArray ?: throw IllegalStateException("No 'columns' array")
 
             val result: MutableList<BondDetails> = mutableListOf()
 

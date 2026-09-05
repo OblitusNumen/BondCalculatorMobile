@@ -1,14 +1,12 @@
 package oblitusnumen.bondcalculator.data.network
 
 import io.ktor.client.HttpClient
-import io.ktor.client.HttpClientConfig
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.utils.io.CancellationException
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.utils.io.*
 import kotlinx.serialization.json.Json
 import java.math.BigDecimal
 import java.math.RoundingMode

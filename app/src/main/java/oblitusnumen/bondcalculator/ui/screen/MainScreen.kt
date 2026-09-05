@@ -25,10 +25,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import oblitusnumen.bondcalculator.ui.tabs.BondsTab
-import oblitusnumen.bondcalculator.ui.tabs.DepositsTab
-import oblitusnumen.bondcalculator.ui.tabs.MarketTab
-import oblitusnumen.bondcalculator.ui.tabs.ProfitIndexTab
+import oblitusnumen.bondcalculator.ui.tabs.*
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,6 +70,7 @@ fun MainScreen(
                                     Tab.Bonds -> "Bonds"
                                     Tab.Deposits -> "Deposits"
                                     Tab.ProfitIndex -> "Count profit"
+                                    Tab.Xirr -> "XIRR"
                                 },
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleSmall,
@@ -85,23 +83,18 @@ fun MainScreen(
 
             HorizontalPager(rememberedPagerState, verticalAlignment = Alignment.Top) { page ->
                 when (Tab.entries[page]) {
-                    Tab.Market -> {
-                        MarketTab(paddingValues)
-                    }
-
-                    Tab.Bonds -> {
-                        BondsTab(
-                            paddingValues,
-                            search,
-                            rememberedLazyListState,
-                            rememberedMainScreenSettings,
-                            openEditBond
-                        )
-                    }
+                    Tab.Market -> MarketTab(paddingValues)
+                    Tab.Bonds -> BondsTab(
+                        paddingValues,
+                        search,
+                        rememberedLazyListState,
+                        rememberedMainScreenSettings,
+                        openEditBond
+                    )
 
                     Tab.Deposits -> DepositsTab(paddingValues)
-
                     Tab.ProfitIndex -> ProfitIndexTab(paddingValues, rememberedMainScreenSettings)
+                    Tab.Xirr -> XirrTab(paddingValues)
                 }
             }
         }
@@ -205,5 +198,6 @@ enum class Tab {
     Market,
     Bonds,
     Deposits,
-    ProfitIndex
+    ProfitIndex,
+    Xirr
 }

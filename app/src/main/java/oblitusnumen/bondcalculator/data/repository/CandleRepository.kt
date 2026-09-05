@@ -1,6 +1,6 @@
 package oblitusnumen.bondcalculator.data.repository
 
-import io.ktor.client.call.body
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import kotlinx.serialization.json.JsonObject
 import oblitusnumen.bondcalc.MoexInstrument
@@ -20,6 +20,14 @@ class CandleRepository(
         to: LocalDate,
         instrument: MoexInstrument
     ): List<Candle>? {
+        val candlesSave = dao.getCandles(instrument.security)
+        if (candlesSave != null) {
+            val (fromEpochDay, toEpochDay, candles) = candlesSave
+            if (fromEpochDay == from.toEpochDay() && toEpochDay == to.toEpochDay()) {
+                return candles
+            }
+        }
+
         var result: List<Candle>? = null
 
         dispatcher.get(
@@ -33,8 +41,7 @@ class CandleRepository(
         ) { response ->
             val body: JsonObject? = response.body()
             result = body?.let { Candle.fromJson(it) } ?: emptyList()
-            // TODO: integrate dao
-            //dao.upsertAll(result.map { it.toEntity()!! })
+            dao.saveCandles(instrument.security, from.toEpochDay(), to.toEpochDay(), result)
         }
 
         return result

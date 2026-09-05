@@ -1,5 +1,8 @@
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 @Entity(tableName = "bond_details")
 data class BondDetailsEntity(
@@ -73,5 +76,12 @@ data class BondDetailsEntity(
     // Local cache metadata
     val cachedAt: Long
 ) {
+
     fun isFresh(currentTimeMillis: Long, cacheTtlMillis: Long) = cachedAt + cacheTtlMillis > currentTimeMillis
+
+    fun getCachedAt(zoneId: ZoneId = ZoneId.systemDefault()): LocalDateTime =
+        LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(cachedAt),
+            zoneId
+        )
 }

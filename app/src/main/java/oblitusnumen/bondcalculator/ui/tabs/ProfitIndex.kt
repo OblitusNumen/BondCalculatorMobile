@@ -26,7 +26,10 @@ import androidx.compose.ui.unit.sp
 import oblitusnumen.bondcalculator.impl.ProfitCalculationResult
 import oblitusnumen.bondcalculator.impl.calculateProfit
 import oblitusnumen.bondcalculator.impl.getSettings
-import oblitusnumen.bondcalculator.ui.*
+import oblitusnumen.bondcalculator.ui.DatePicker
+import oblitusnumen.bondcalculator.ui.cursorToEnd
+import oblitusnumen.bondcalculator.ui.formatDoublePercentage
+import oblitusnumen.bondcalculator.ui.formatRubbleValue
 import oblitusnumen.bondcalculator.ui.screen.MainScreenSettings
 import java.time.LocalDate
 
@@ -72,12 +75,13 @@ fun ProfitIndexTab(paddingValues: PaddingValues, mainScreenSettings: MainScreenS
                 OutlinedTextField(
                     value = buyCostText,
                     onValueChange = {
+                        val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
-                            if (it.text.isNotEmpty()) {
-                                mainScreenSettings.profitInvestmentCost = it.text.toDouble()
+                            if (fieldValue.text.isNotEmpty()) {
+                                mainScreenSettings.profitInvestmentCost = fieldValue.text.toDouble()
                                 calculationResult = calculateResult()
                             }
-                            buyCostText = it
+                            buyCostText = fieldValue
                         } catch (_: Exception) {
                         }
                     },
@@ -96,12 +100,13 @@ fun ProfitIndexTab(paddingValues: PaddingValues, mainScreenSettings: MainScreenS
                 OutlinedTextField(
                     value = totalReturnText,
                     onValueChange = {
+                        val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
-                            if (it.text.isNotEmpty()) {
-                                mainScreenSettings.profitTotalReturn = it.text.toDouble()
+                            if (fieldValue.text.isNotEmpty()) {
+                                mainScreenSettings.profitTotalReturn = fieldValue.text.toDouble()
                                 calculationResult = calculateResult()
                             }
-                            totalReturnText = it
+                            totalReturnText = fieldValue
                         } catch (_: Exception) {
                         }
                     },
