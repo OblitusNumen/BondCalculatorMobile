@@ -213,6 +213,9 @@ class BondRepository(
         }
     }
 
+    /**
+     * @param callback status is of {Loading, Loaded, Cached}
+     */
     suspend fun searchBonds(query: String, callback: (RemoteDataStatus, List<Pair<String, String?>>?) -> Unit) {
         var status = RemoteDataStatus.Loading
         println("run query request: $query")

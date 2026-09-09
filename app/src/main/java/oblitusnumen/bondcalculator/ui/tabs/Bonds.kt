@@ -49,6 +49,7 @@ import oblitusnumen.bondcalculator.ui.screen.MainScreenSettings
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+// FIXME: draw favourites on top
 @Composable
 fun BondsTab(
     paddingValues: PaddingValues,
@@ -176,18 +177,21 @@ fun BondsTab(
 
     val appDataManager = LocalDataManager.current
     LaunchedEffect(remoteDataStatus, search) {
-        if (remoteDataStatus == RemoteDataStatus.Loading) {
-            appDataManager.bondRepository.searchBonds(search) { status, details ->
-                remoteBonds = details
-                remoteDataStatus = status
-            }
+        if (search.isNotEmpty() && prevSearch != search) {
+            if (remoteDataStatus == RemoteDataStatus.Loading) {
+                appDataManager.bondRepository.searchBonds(search) { status, bonds ->
+                    remoteBonds = bonds
+                    remoteDataStatus = status
+                }
 //            fetchRemote(search)
+            }
         }
     }
 
     LaunchedEffect(search) {
         if (search.isNotEmpty() && prevSearch != search) {
             prevSearch = search
+            remoteDataStatus = RemoteDataStatus.Loading
             coroutineScope.launch {
                 rememberedLazyListState.animateScrollToItem(index = 0)
             }
