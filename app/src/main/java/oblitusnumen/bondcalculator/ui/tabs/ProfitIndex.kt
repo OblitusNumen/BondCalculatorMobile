@@ -43,7 +43,12 @@ fun ProfitIndexTab(paddingValues: PaddingValues, mainScreenSettings: MainScreenS
 
     var buyCostText: TextFieldValue by remember { mutableStateOf(TextFieldValue(mainScreenSettings.profitInvestmentCost.toString()).cursorToEnd()) }
     var totalReturnText: TextFieldValue by remember { mutableStateOf(TextFieldValue(mainScreenSettings.profitTotalReturn.toString()).cursorToEnd()) }
+    var spanText: TextFieldValue by remember(
+        mainScreenSettings.profitInvestmentDate,
+        mainScreenSettings.profitWithdrawDate
+    ) { mutableStateOf(TextFieldValue((mainScreenSettings.profitWithdrawDate - mainScreenSettings.profitInvestmentDate).toString()).cursorToEnd()) }
     val totalReturnTextFocusRequester = remember { FocusRequester() }
+    val spanTextFocusRequester = remember { FocusRequester() }
 
     val calculateResult: () -> ProfitCalculationResult =
         {
@@ -119,6 +124,7 @@ fun ProfitIndexTab(paddingValues: PaddingValues, mainScreenSettings: MainScreenS
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Done
                     ),
+                    keyboardActions = KeyboardActions(onDone = { spanTextFocusRequester.requestFocus() }),
                     maxLines = 1,
                 )
             }
@@ -160,6 +166,35 @@ fun ProfitIndexTab(paddingValues: PaddingValues, mainScreenSettings: MainScreenS
                     Text(LocalDate.ofEpochDay(mainScreenSettings.profitWithdrawDate).toString())
                 }
             }
+        }
+
+        item {
+            OutlinedTextField(
+                value = spanText,
+                onValueChange = {
+                    try {
+                        if (it.text.isNotEmpty()) {
+                            mainScreenSettings.profitWithdrawDate =
+                                mainScreenSettings.profitInvestmentDate + it.text.toInt()
+                            calculationResult = calculateResult()
+                        }
+                        spanText = it
+                    } catch (_: Exception) {
+                    }
+                },
+                modifier = Modifier.focusRequester(spanTextFocusRequester).padding(
+                    horizontal = 12.dp,
+                    vertical = 4.dp
+                ).fillMaxWidth(),
+                label = @Composable { Text("Investment span") },
+                trailingIcon = @Composable { Text("d") },
+                shape = RoundedCornerShape(8.dp),
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                maxLines = 1,
+            )
         }
 
 //        item {
