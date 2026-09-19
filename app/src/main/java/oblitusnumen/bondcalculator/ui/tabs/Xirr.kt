@@ -17,17 +17,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import oblitusnumen.bondcalculator.data.schema.CashFlow
+import oblitusnumen.bondcalculator.data.schema.CashFlowUiState
 import oblitusnumen.bondcalculator.impl.getXirrCashFlows
 import oblitusnumen.bondcalculator.impl.saveXirrCashFlows
 import oblitusnumen.bondcalculator.impl.xirr
 import oblitusnumen.bondcalculator.ui.ParameterRow
-import oblitusnumen.bondcalculator.ui.formatDouble
 import oblitusnumen.bondcalculator.ui.formatDoublePercentage
 import oblitusnumen.bondcalculator.ui.formatRubbleValue
 import oblitusnumen.bondcalculator.ui.rememberDatePicker
@@ -36,7 +37,7 @@ import java.time.LocalDate
 @Composable
 fun XirrTab(paddingValues: PaddingValues) {
     val context = LocalContext.current
-    var cashFlows by remember { mutableStateOf(getXirrCashFlows(context)) }
+    var cashFlows by remember { mutableStateOf(getXirrCashFlows(context).map(CashFlow::cashFlowUiState)) }
     var xirr by remember { mutableStateOf(0.0) }
     var absChange by remember { mutableStateOf(0.0) }
     var changePercentage by remember { mutableStateOf(0.0) }
@@ -45,15 +46,15 @@ fun XirrTab(paddingValues: PaddingValues) {
 
     LaunchedEffect(cashFlows) {
         try {
-            xirr = xirr(cashFlows) * 100
-            val cashFlowAmounts = cashFlows.map { it.amount }
-            spent = -cashFlowAmounts.filter { it < 0 }.sum()
-            gain = cashFlowAmounts.filter { it > 0 }.sum()
-            absChange = gain - spent
-            changePercentage = absChange / spent * 100
+            xirr = xirr(cashFlows.map(CashFlowUiState::cashFlow)) * 100
         } catch (_: Exception) {
-            xirr = 0.0
+            xirr = Double.NaN
         }
+        val cashFlowAmounts = cashFlows.map { it.amount }
+        spent = -cashFlowAmounts.filter { it < 0 }.sum()
+        gain = cashFlowAmounts.filter { it > 0 }.sum()
+        absChange = gain - spent
+        changePercentage = absChange / spent * 100
     }
 
     LazyColumn(state = rememberLazyListState()) {
@@ -61,22 +62,6 @@ fun XirrTab(paddingValues: PaddingValues) {
             ParameterRow(
                 "XIRR",
                 formatDoublePercentage(xirr, 4),
-                Modifier.padding(horizontal = 40.dp)
-            )
-        }
-
-        item {
-            ParameterRow(
-                "Absolute change",
-                formatRubbleValue(absChange, 2),
-                Modifier.padding(horizontal = 40.dp)
-            )
-        }
-
-        item {
-            ParameterRow(
-                "Change percentage",
-                formatDoublePercentage(changePercentage, 4),
                 Modifier.padding(horizontal = 40.dp)
             )
         }
@@ -98,7 +83,23 @@ fun XirrTab(paddingValues: PaddingValues) {
         }
 
         item {
-            var cashFlow by remember { mutableStateOf(CashFlow(0.0, LocalDate.now().toEpochDay())) }
+            ParameterRow(
+                "Change percentage",
+                formatDoublePercentage(changePercentage, 4),
+                Modifier.padding(horizontal = 40.dp)
+            )
+        }
+
+        item {
+            ParameterRow(
+                "Absolute change",
+                formatRubbleValue(absChange, 2),
+                Modifier.padding(horizontal = 40.dp)
+            )
+        }
+
+        item {
+            var cashFlow by remember { mutableStateOf(CashFlowUiState(0.0, "0.0", LocalDate.now().toEpochDay())) }
             var newCashFlowShown by remember { mutableStateOf(false) }
             Box(Modifier.clickable { newCashFlowShown = true }.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 IconButton(onClick = { newCashFlowShown = true }) {
@@ -110,7 +111,7 @@ fun XirrTab(paddingValues: PaddingValues) {
                     TextButton(onClick = {
                         newCashFlowShown = false
                         cashFlows = cashFlows.toMutableList().apply { add(cashFlow) }.sortedBy { it.dateEpochDay }
-                        saveXirrCashFlows(context, cashFlows)
+                        saveXirrCashFlows(context, cashFlows.map(CashFlowUiState::cashFlow))
                     }) {
                         Text("Ok")
                     }
@@ -129,11 +130,11 @@ fun XirrTab(paddingValues: PaddingValues) {
                     cashFlow,
                     {
                         cashFlows = cashFlows.toMutableList().apply { this[index] = it }.sortedBy { it.dateEpochDay }
-                        saveXirrCashFlows(context, cashFlows)
+                        saveXirrCashFlows(context, cashFlows.map(CashFlowUiState::cashFlow))
                     },
                     {
                         cashFlows = cashFlows.toMutableList().apply { removeAt(index) }.toList()
-                        saveXirrCashFlows(context, cashFlows)
+                        saveXirrCashFlows(context, cashFlows.map(CashFlowUiState::cashFlow))
                     })
             }
         }
@@ -144,8 +145,8 @@ fun XirrTab(paddingValues: PaddingValues) {
 
 @Composable
 fun CashFlow(
-    cashFlow: CashFlow,
-    onCashFlowChange: (CashFlow) -> Unit,
+    cashFlow: CashFlowUiState,
+    onCashFlowChange: (CashFlowUiState) -> Unit,
     onRemove: () -> Unit,
     interactable: Boolean = true
 ) {
@@ -162,14 +163,12 @@ fun CashFlow(
             }
 
         OutlinedTextField(
-            value = formatDouble(cashFlow.amount, 2),
+            value = cashFlow.amountStr,
             onValueChange = {
-                try {
-                    onCashFlowChange(cashFlow.copy(amount = it.replace(',', '.').toDouble()))
-                } catch (_: Exception) {
-                }
+                onCashFlowChange(cashFlow.withAmountString(it))
             },
-            modifier = Modifier.padding(vertical = 4.dp, horizontal = 6.dp).weight(1f),
+            modifier = Modifier.padding(vertical = 4.dp, horizontal = 6.dp).weight(1f)
+                .onFocusEvent { if (!it.isFocused) onCashFlowChange(cashFlow.cashFlow().cashFlowUiState()) },
             label = { Text("Amount") },
             trailingIcon = { Text("₽") },
             shape = RoundedCornerShape(8.dp),
