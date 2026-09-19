@@ -29,6 +29,7 @@ import oblitusnumen.bondcalculator.impl.xirr
 import oblitusnumen.bondcalculator.ui.ParameterRow
 import oblitusnumen.bondcalculator.ui.formatDouble
 import oblitusnumen.bondcalculator.ui.formatDoublePercentage
+import oblitusnumen.bondcalculator.ui.formatRubbleValue
 import oblitusnumen.bondcalculator.ui.rememberDatePicker
 import java.time.LocalDate
 
@@ -37,10 +38,19 @@ fun XirrTab(paddingValues: PaddingValues) {
     val context = LocalContext.current
     var cashFlows by remember { mutableStateOf(getXirrCashFlows(context)) }
     var xirr by remember { mutableStateOf(0.0) }
+    var absChange by remember { mutableStateOf(0.0) }
+    var changePercentage by remember { mutableStateOf(0.0) }
+    var spent by remember { mutableStateOf(0.0) }
+    var gain by remember { mutableStateOf(0.0) }
 
     LaunchedEffect(cashFlows) {
         try {
             xirr = xirr(cashFlows) * 100
+            val cashFlowAmounts = cashFlows.map { it.amount }
+            spent = -cashFlowAmounts.filter { it < 0 }.sum()
+            gain = cashFlowAmounts.filter { it > 0 }.sum()
+            absChange = gain - spent
+            changePercentage = absChange / spent * 100
         } catch (_: Exception) {
             xirr = 0.0
         }
@@ -51,6 +61,38 @@ fun XirrTab(paddingValues: PaddingValues) {
             ParameterRow(
                 "XIRR",
                 formatDoublePercentage(xirr, 4),
+                Modifier.padding(horizontal = 40.dp)
+            )
+        }
+
+        item {
+            ParameterRow(
+                "Absolute change",
+                formatRubbleValue(absChange, 2),
+                Modifier.padding(horizontal = 40.dp)
+            )
+        }
+
+        item {
+            ParameterRow(
+                "Change percentage",
+                formatDoublePercentage(changePercentage, 4),
+                Modifier.padding(horizontal = 40.dp)
+            )
+        }
+
+        item {
+            ParameterRow(
+                "Overall spent",
+                formatRubbleValue(spent, 2),
+                Modifier.padding(horizontal = 40.dp)
+            )
+        }
+
+        item {
+            ParameterRow(
+                "Overall gain",
+                formatRubbleValue(gain, 2),
                 Modifier.padding(horizontal = 40.dp)
             )
         }
