@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
             val coroutineScope = rememberCoroutineScope()
             remember {
                 dataManager.setCoroutineScope(coroutineScope)
+                null
             }
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.IO) {
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     var editBondId: Int? by rememberSaveable { mutableStateOf(null) }
                     val mainScreenSettings = rememberMainScreenSettings()
                     val rememberedSearch = rememberSaveable { mutableStateOf("") }
-                    val rememberedPagerState = rememberPagerState(Tab.Bonds.ordinal, pageCount = { Tab.entries.size })
+                    val rememberedPagerState = rememberPagerState(Tab.Market.ordinal, pageCount = { Tab.entries.size })
                     val lazyListState = rememberLazyListState()
 
                     when (openScreen) {

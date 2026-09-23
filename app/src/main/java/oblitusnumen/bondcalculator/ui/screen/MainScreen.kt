@@ -28,7 +28,6 @@ import kotlinx.coroutines.launch
 import oblitusnumen.bondcalculator.ui.tabs.*
 import java.time.LocalDate
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     openSettings: () -> Unit,
@@ -71,6 +70,7 @@ fun MainScreen(
                                     Tab.Deposits -> "Deposits"
                                     Tab.ProfitIndex -> "Count profit"
                                     Tab.Xirr -> "XIRR"
+                                    Tab.InvestmentProfitCalculator -> "Investment profit"
                                 },
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleSmall,
@@ -95,13 +95,13 @@ fun MainScreen(
                     Tab.Deposits -> DepositsTab(paddingValues)
                     Tab.ProfitIndex -> ProfitIndexTab(paddingValues, rememberedMainScreenSettings)
                     Tab.Xirr -> XirrTab(paddingValues)
+                    Tab.InvestmentProfitCalculator -> InvestmentProfitTab(paddingValues)
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainTopBar(openSettings: () -> Unit, openCreateBond: () -> Unit, search: String, onSearch: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = CenterVertically) {
@@ -195,9 +195,10 @@ class MainScreenSettings {
 }
 
 enum class Tab {
-    Market,
+    Xirr,
     Bonds,
+    Market,
     Deposits,
+    InvestmentProfitCalculator,
     ProfitIndex,
-    Xirr
 }

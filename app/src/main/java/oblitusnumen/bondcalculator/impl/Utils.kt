@@ -36,7 +36,7 @@ fun String?.toLocalDateOrNull(): LocalDate? =
 
 const val DEFAULT_BOND_VALUE = 1000.0
 const val DEFAULT_COUPON_PERIOD = 182
-val DEPOSIT_COMMON_PERIODS = listOf(30, 61, 92, 122, 182, 274, 365, 547, 730, 912, 1095)
+val DEPOSIT_COMMON_PERIODS = listOf(30, 61, 92, 122, 152, 182, 274, 365, 547, 730, 912, 1095)
 
 private const val SHARED_PREFERENCES_NAME: String = "all_preferences"
 fun getSharedPrefs(context: Context): SharedPreferences {

@@ -28,6 +28,9 @@ fun SettingsScreen(backPress: () -> Unit) {
     Scaffold(topBar = { SettingsTopBar(backPress) }) { paddingValues ->
         var taxPercentageText: TextFieldValue by remember { mutableStateOf(TextFieldValue(settings.taxPercentage.toString()).cursorToEnd()) }
 
+        var inflationPercentageText: TextFieldValue by remember { mutableStateOf(TextFieldValue(settings.inflationPercentage.toString()).cursorToEnd()) }
+        val inflationPercentageFocusRequester: FocusRequester = remember { FocusRequester() }
+
         var brokerCommissionPercentageText: TextFieldValue by remember { mutableStateOf(TextFieldValue(settings.brokerCommissionPercentage.toString()).cursorToEnd()) }
         val brokerCommissionPercentageFocusRequester = remember { FocusRequester() }
 
@@ -48,6 +51,23 @@ fun SettingsScreen(backPress: () -> Unit) {
                         if (it.text.isNotEmpty())
                             settings = settings.copy(taxPercentage = it.text.toDouble())
                         taxPercentageText = it
+                    } catch (_: Exception) {
+                    }
+                },
+                KeyboardType.Decimal,
+                focusRequester = null,
+                nextFocusRequester = inflationPercentageFocusRequester
+            ) {
+                Text("%")
+            }
+
+            addSetting(
+                "Inflation", inflationPercentageText,
+                {
+                    try {
+                        if (it.text.isNotEmpty())
+                            settings = settings.copy(inflationPercentage = it.text.toDouble())
+                        inflationPercentageText = it
                     } catch (_: Exception) {
                     }
                 },

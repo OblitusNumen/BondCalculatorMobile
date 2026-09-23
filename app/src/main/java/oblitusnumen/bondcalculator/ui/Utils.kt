@@ -77,7 +77,9 @@ fun Double.toSigFigString(sigFigs: Int = 3): String {
         .toPlainString()
 }
 
-fun formatDouble(value: Double, digits: Int = 2): String = String.format("%.${digits}f", value)
+fun formatDouble(value: Double, digits: Int = 2): String = value.format(digits)
+
+fun Double.format(digits: Int = 2): String = String.format("%.${digits}f", this)
 
 fun formatDoublePercentage(value: Double, digits: Int = 2): String {
     val value =

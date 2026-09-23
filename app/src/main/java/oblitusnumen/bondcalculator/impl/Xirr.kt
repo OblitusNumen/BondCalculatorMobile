@@ -1,14 +1,10 @@
 package oblitusnumen.bondcalculator.impl
 
 import oblitusnumen.bondcalculator.data.schema.CashFlow
+import oblitusnumen.bondcalculator.data.schema.CashFlowNormalized
 import kotlin.math.abs
 import kotlin.math.pow
 
-
-private data class CashFlowNormalized(
-    val amount: Double,
-    val years: Double          // fractional years from the earliest cash flow
-)
 
 private fun calculateResult(flows: List<CashFlowNormalized>, ratePlusOne: Double): Double {
     var result = 0.0
@@ -50,16 +46,22 @@ fun xirr(
     maxEpsilon: Double = .0001,
     maxScans: Int = 200,
     maxIterations: Int = 20
+): Double = xirrByNofmalizedFlows(normalize(flows), guessRate, maxEpsilon, maxScans, maxIterations)
+
+fun xirrByNofmalizedFlows(
+    flows: List<CashFlowNormalized>,
+    guessRate: Double = 0.1,
+    maxEpsilon: Double = .0001,
+    maxScans: Int = 200,
+    maxIterations: Int = 20
 ): Double {
     if (flows.isEmpty())
         return 0.0
 
-    val normalized = normalize(flows)
-
-    if (normalized.none { it.amount > 0 }) {
+    if (flows.none { it.amount > 0 }) {
         throw IllegalArgumentException("No positive amount was found in cash flows")
     }
-    if (normalized.none { it.amount < 0 }) {
+    if (flows.none { it.amount < 0 }) {
         throw IllegalArgumentException("No negative amount was found in cash flows")
     }
     if (guessRate <= -1.0) {
@@ -75,8 +77,8 @@ fun xirr(
         throw IllegalArgumentException("Max iterations is lower than 10")
     }
 
-    val firstAmount = normalized[0].amount
-    val remaining = normalized.drop(1)
+    val firstAmount = flows[0].amount
+    val remaining = flows.drop(1)
 
     var resultRate = guessRate
     var resultValue: Double
