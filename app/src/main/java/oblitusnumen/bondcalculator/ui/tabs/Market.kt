@@ -25,6 +25,7 @@ import oblitusnumen.bondcalc.moexapi.allInstruments
 import oblitusnumen.bondcalculator.data.schema.Candle
 import oblitusnumen.bondcalculator.data.schema.Security
 import oblitusnumen.bondcalculator.ui.composition.LocalDataManager
+import oblitusnumen.bondcalculator.ui.format
 import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlin.random.Random
@@ -257,6 +258,7 @@ fun MarketTab(paddingValues: PaddingValues) {
 fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
     var candles: List<Candle>? by remember { mutableStateOf(null) }
     var now: Pair<Double?, Double?>? by remember { mutableStateOf(null) }
+    var today: Candle? by remember { mutableStateOf(null) }
 
     Column(
         modifier.padding(horizontal = 4.dp)
@@ -292,6 +294,25 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
         DisposableEffect(Unit) {
             val updateCallback: (Security?, LocalDateTime?) -> Unit = { security, updateTime ->
                 now = security?.lastPrice to security?.lastToPrevPrcnt
+                security?.let {
+                    today = Candle(
+                        instrument.board,
+                        instrument.security,
+                        it.tradeDate?.toEpochDay() ?: LocalDate.now().toEpochDay(),
+                        it.tradeSessionDate?.toEpochDay() ?: LocalDate.now().toEpochDay(),
+                        null,
+                        null,
+                        it.open,
+                        it.lastPrice,
+                        it.high,
+                        it.low,
+                        it.volumeToday,
+                        it.valueToday,
+                        it.numtrades,
+                        null,
+                        null
+                    )
+                }
             }
 
             dataManager.securityRepository.getSecuritySubscribe(instrument, updateCallback)
@@ -318,7 +339,11 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
                     Icon(Icons.Rounded.Refresh, contentDescription = null)
                 }
             } else {
-                CandlestickChart(candles!!, Modifier.fillMaxWidth())
+                CandlestickChart(candles!!.toMutableList().apply {
+                    // FIXME:
+//                    this.lastOrNull()?.run { add(this.copy()) }
+                    today?.let { add(it) }
+                }, Modifier.fillMaxWidth())
             }
         }
     }
@@ -355,102 +380,106 @@ fun CandlestickChart(
         (maxPrice - minPrice).takeIf { it > 0 }
             ?: 1.0
 
-    Canvas(modifier = modifier.height(100.dp)) {
+    Box(Modifier.height(100.dp)) {
+        Canvas(modifier = modifier.height(100.dp)) {
 
-        val chartWidth = size.width
-        val chartHeight = size.height
+            val chartWidth = size.width
+            val chartHeight = size.height
 
-        val candleStep =
-            candleWidth + candleSpacing
+            val candleStep =
+                candleWidth + candleSpacing
 
-        /*
+            /*
          * Пока показываем последние свечи,
          * которые помещаются на экран.
          */
-        val visibleCount =
-            (chartWidth / candleStep)
-                .toInt()
-                .coerceAtLeast(1)
+            val visibleCount =
+                (chartWidth / candleStep)
+                    .toInt()
+                    .coerceAtLeast(1)
 
-        val visibleCandles =
-            candles.takeLast(visibleCount)
+            val visibleCandles =
+                candles.takeLast(visibleCount)
 
-        fun y(price: Double): Float {
-            val normalized =
-                ((price - minPrice) / priceRange)
-                    .toFloat()
+            fun y(price: Double): Float {
+                val normalized =
+                    ((price - minPrice) / priceRange)
+                        .toFloat()
 
-            return chartHeight -
-                    normalized * chartHeight
-        }
+                return chartHeight -
+                        normalized * chartHeight
+            }
 
-        visibleCandles.forEachIndexed { index, candle ->
+            visibleCandles.forEachIndexed { index, candle ->
 
-            val x =
-                index * candleStep +
-                        candleWidth / 2f
+                val x =
+                    index * candleStep +
+                            candleWidth / 2f
 
-            val open = candle.open ?: return@forEachIndexed
-            val high = candle.high ?: return@forEachIndexed
-            val low = candle.low ?: return@forEachIndexed
-            val close = candle.close ?: return@forEachIndexed
+                val open = candle.open ?: return@forEachIndexed
+                val high = candle.high ?: return@forEachIndexed
+                val low = candle.low ?: return@forEachIndexed
+                val close = candle.close ?: return@forEachIndexed
 
-            val yOpen = y(open)
-            val yClose = y(close)
-            val yHigh = y(high)
-            val yLow = y(low)
+                val yOpen = y(open)
+                val yClose = y(close)
+                val yHigh = y(high)
+                val yLow = y(low)
 
-            close >= open
+                close >= open
 
-            /*
+                /*
              * Цвета здесь специально не фиксирую.
              * Можно вынести их в MaterialTheme.
              */
-            val candleColor =
-                if (close > open) {
-                    Color.Green
-                } else if (close < open) {
-                    Color.Red
-                } else {
-                    Color.Gray
-                }
+                val candleColor =
+                    if (close > open) {
+                        Color.Green
+                    } else if (close < open) {
+                        Color.Red
+                    } else {
+                        Color.Gray
+                    }
 
-            /*
+                /*
              * Тень свечи
              */
-            drawLine(
-                color = candleColor,
-                start = Offset(x, yHigh),
-                end = Offset(x, yLow),
-                strokeWidth = 1.dp.toPx()
-            )
+                drawLine(
+                    color = candleColor,
+                    start = Offset(x, yHigh),
+                    end = Offset(x, yLow),
+                    strokeWidth = 1.dp.toPx()
+                )
 
-            /*
+                /*
              * Тело свечи
              */
-            val bodyTop =
-                minOf(yOpen, yClose)
+                val bodyTop =
+                    minOf(yOpen, yClose)
 
-            val bodyBottom =
-                maxOf(yOpen, yClose)
+                val bodyBottom =
+                    maxOf(yOpen, yClose)
 
-            val bodyHeight =
-                maxOf(
-                    bodyBottom - bodyTop,
-                    1.dp.toPx()
+                val bodyHeight =
+                    maxOf(
+                        bodyBottom - bodyTop,
+                        1.dp.toPx()
+                    )
+
+                drawRect(
+                    color = candleColor,
+                    topLeft = Offset(
+                        x - candleWidth / 2f,
+                        bodyTop
+                    ),
+                    size = Size(
+                        candleWidth,
+                        bodyHeight
+                    )
                 )
-
-            drawRect(
-                color = candleColor,
-                topLeft = Offset(
-                    x - candleWidth / 2f,
-                    bodyTop
-                ),
-                size = Size(
-                    candleWidth,
-                    bodyHeight
-                )
-            )
+            }
         }
+        Text(candles.maxOf { it.high ?: 0.0 }.format(2), Modifier.align(Alignment.TopEnd))
+        Text(candles.minOf { it.low ?: 0.0 }.format(2), Modifier.align(Alignment.BottomEnd))
     }
 }

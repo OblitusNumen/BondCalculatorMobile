@@ -27,11 +27,11 @@ val CNY_RUB = MoexInstrument(
 )
 
 val GLD = MoexInstrument(
-    name = "Золото GDU6",
+    name = "Золото GDZ6",
     engine = "futures",
     market = "forts",
     board = "RFUD",
-    security = "GDU6"
+    security = "GDZ6"
 )
 
 val GLDRUB_TOM = MoexInstrument(
