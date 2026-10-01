@@ -177,7 +177,7 @@ fun BondsTab(
 
     val appDataManager = LocalDataManager.current
     LaunchedEffect(remoteDataStatus, search) {
-        if (search.isNotEmpty() && prevSearch != search) {
+        if (search.isNotEmpty()/* && prevSearch != search*/) {
             if (remoteDataStatus == RemoteDataStatus.Loading) {
                 appDataManager.bondRepository.searchBonds(search) { status, bonds ->
                     remoteBonds = bonds
