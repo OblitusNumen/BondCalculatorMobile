@@ -2,8 +2,10 @@ package oblitusnumen.bondcalculator.ui.tabs
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -16,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -259,6 +262,14 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
     var candles: List<Candle>? by remember { mutableStateOf(null) }
     var now: Pair<Double?, Double?>? by remember { mutableStateOf(null) }
     var today: Candle? by remember { mutableStateOf(null) }
+    val dataManager = LocalDataManager.current
+    val updateCandles = suspend {
+        candles = dataManager.candleRepository.getCandles(
+            LocalDate.now().minusDays(100),
+            LocalDate.now(),
+            instrument
+        )
+    }
 
     Column(
         modifier.padding(horizontal = 4.dp)
@@ -274,11 +285,9 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
             )
         }
 
-        val dataManager = LocalDataManager.current
         LaunchedEffect(candles) {
             if (candles == null) {
-                candles =
-                    dataManager.candleRepository.getCandles(LocalDate.now().minusMonths(1), LocalDate.now(), instrument)
+                updateCandles()
 //                    MoexApiClient().use {
 //                        candles =
 //                            this.getCandles(instrument, LocalDate.now().minusMonths(1), LocalDate.now())
@@ -328,11 +337,7 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
                 IconButton(
                     {
                         coroutineScope.launch {
-                            candles = dataManager.candleRepository.getCandles(
-                                LocalDate.now().minusMonths(1),
-                                LocalDate.now(),
-                                instrument
-                            )
+                            updateCandles()
                         }
                     }
                 ) {
@@ -342,8 +347,10 @@ fun Instrument(instrument: MoexInstrument, modifier: Modifier) {
                 CandlestickChart(candles!!.toMutableList().apply {
                     // FIXME:
 //                    this.lastOrNull()?.run { add(this.copy()) }
-                    today?.let { add(it) }
-                }, Modifier.fillMaxWidth())
+                    if (this.isNotEmpty())
+                        today?.let { add(it) }
+                    println("candles size ${this.size}")
+                }, Modifier.fillMaxHeight())
             }
         }
     }
@@ -380,106 +387,106 @@ fun CandlestickChart(
         (maxPrice - minPrice).takeIf { it > 0 }
             ?: 1.0
 
-    Box(Modifier.height(100.dp)) {
-        Canvas(modifier = modifier.height(100.dp)) {
+    Column(modifier) {
+        Box(
+            Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
+        ) {}
 
-            val chartWidth = size.width
-            val chartHeight = size.height
+        Row(Modifier.fillMaxWidth().weight(1f)) {
+            Box(Modifier.weight(1f).horizontalScroll(rememberScrollState(initial = Int.MAX_VALUE))) {
+                val candleStep = candleWidth + candleSpacing
+                val width = (candles.size + .5f) * candleStep
+                val chartWidth = with(LocalDensity.current) { width.toDp() }
 
-            val candleStep =
-                candleWidth + candleSpacing
+                Canvas(modifier = Modifier.fillMaxHeight().width(chartWidth).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))) {
+                    val chartHeight = size.height
 
-            /*
-         * Пока показываем последние свечи,
-         * которые помещаются на экран.
-         */
-            val visibleCount =
-                (chartWidth / candleStep)
-                    .toInt()
-                    .coerceAtLeast(1)
+                    fun y(price: Double): Float {
+                        val normalized =
+                            ((price - minPrice) / priceRange)
+                                .toFloat()
 
-            val visibleCandles =
-                candles.takeLast(visibleCount)
-
-            fun y(price: Double): Float {
-                val normalized =
-                    ((price - minPrice) / priceRange)
-                        .toFloat()
-
-                return chartHeight -
-                        normalized * chartHeight
-            }
-
-            visibleCandles.forEachIndexed { index, candle ->
-
-                val x =
-                    index * candleStep +
-                            candleWidth / 2f
-
-                val open = candle.open ?: return@forEachIndexed
-                val high = candle.high ?: return@forEachIndexed
-                val low = candle.low ?: return@forEachIndexed
-                val close = candle.close ?: return@forEachIndexed
-
-                val yOpen = y(open)
-                val yClose = y(close)
-                val yHigh = y(high)
-                val yLow = y(low)
-
-                close >= open
-
-                /*
-             * Цвета здесь специально не фиксирую.
-             * Можно вынести их в MaterialTheme.
-             */
-                val candleColor =
-                    if (close > open) {
-                        Color.Green
-                    } else if (close < open) {
-                        Color.Red
-                    } else {
-                        Color.Gray
+                        return chartHeight -
+                                normalized * chartHeight
                     }
 
-                /*
-             * Тень свечи
-             */
-                drawLine(
-                    color = candleColor,
-                    start = Offset(x, yHigh),
-                    end = Offset(x, yLow),
-                    strokeWidth = 1.dp.toPx()
-                )
+                    candles.forEachIndexed { index, candle ->
+                        val x = index * candleStep + (candleStep + candleWidth) / 2f
 
-                /*
-             * Тело свечи
-             */
-                val bodyTop =
-                    minOf(yOpen, yClose)
+                        val open = candle.open ?: return@forEachIndexed
+                        val high = candle.high ?: return@forEachIndexed
+                        val low = candle.low ?: return@forEachIndexed
+                        val close = candle.close ?: return@forEachIndexed
 
-                val bodyBottom =
-                    maxOf(yOpen, yClose)
+                        val yOpen = y(open)
+                        val yClose = y(close)
+                        val yHigh = y(high)
+                        val yLow = y(low)
 
-                val bodyHeight =
-                    maxOf(
-                        bodyBottom - bodyTop,
-                        1.dp.toPx()
-                    )
+                        close >= open
 
-                drawRect(
-                    color = candleColor,
-                    topLeft = Offset(
-                        x - candleWidth / 2f,
-                        bodyTop
-                    ),
-                    size = Size(
-                        candleWidth,
-                        bodyHeight
-                    )
-                )
+                        /*
+                 * Цвета здесь специально не фиксирую.
+                 * Можно вынести их в MaterialTheme.
+                 */
+                        val candleColor =
+                            if (close > open) {
+                                Color.Green
+                            } else if (close < open) {
+                                Color.Red
+                            } else {
+                                Color.Gray
+                            }
+
+                        /*
+                 * Тень свечи
+                 */
+                        drawLine(
+                            color = candleColor,
+                            start = Offset(x, yHigh),
+                            end = Offset(x, yLow),
+                            strokeWidth = 1.dp.toPx()
+                        )
+
+                        /*
+                 * Тело свечи
+                 */
+                        val bodyTop =
+                            minOf(yOpen, yClose)
+
+                        val bodyBottom =
+                            maxOf(yOpen, yClose)
+
+                        val bodyHeight =
+                            maxOf(
+                                bodyBottom - bodyTop,
+                                1.dp.toPx()
+                            )
+
+                        drawRect(
+                            color = candleColor,
+                            topLeft = Offset(
+                                x - candleWidth / 2f,
+                                bodyTop
+                            ),
+                            size = Size(
+                                candleWidth,
+                                bodyHeight
+                            )
+                        )
+                    }
+                }
+            }
+
+            Box(Modifier.padding(start = 2.dp).fillMaxHeight().wrapContentWidth()) {
+                Text(candles.maxOf { it.high ?: 0.0 }.format(2), Modifier.align(Alignment.TopEnd))
+                Text(candles.minOf { it.low ?: 0.0 }.format(2), Modifier.align(Alignment.BottomEnd))
             }
         }
-        Text(candles.maxOf { it.high ?: 0.0 }.format(2), Modifier.align(Alignment.TopEnd))
-        Text(candles.minOf { it.low ?: 0.0 }.format(2), Modifier.align(Alignment.BottomEnd))
+
+        Box(
+            Modifier.fillMaxWidth().height(1.dp)
+                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
+        ) {}
     }
 }
