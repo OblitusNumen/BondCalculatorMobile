@@ -16,21 +16,21 @@ data class LocalBond(
     val couponPeriodDays: Int,
     val couponValue: Double,
     val bondPricePrcnt: Double,
-    val nkdOffset: Int,
+    val accruedOffset: Int,
 ) {
-    val bondReturnDate: LocalDate
+    val maturityDate: LocalDate
         get() = LocalDate.ofEpochDay(bondMaturityEpochDay)
 
     val bondPrice: Double
         get() = bondPricePrcnt * bondValue / 100
 
-    fun getInvestmentPeriod(now: LocalDate): Int = (bondReturnDate.toEpochDay() - now.toEpochDay()).toInt()
+    fun getInvestmentPeriod(now: LocalDate): Int = (maturityDate.toEpochDay() - now.toEpochDay()).toInt()
 
     fun getCouponCount(investmentPeriod: Int): Int =
         if (couponPeriodDays == 0) 0 else (investmentPeriod - 1) / couponPeriodDays + 1
 
-    fun getNkdEsteem(investmentPeriod: Int): Double = if (couponPeriodDays == 0) 0.0 else
-        couponValue * (couponPeriodDays - ((((investmentPeriod - nkdOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
+    fun getAccruedEsteem(investmentPeriod: Int): Double = if (couponPeriodDays == 0) 0.0 else
+        couponValue * (couponPeriodDays - ((((investmentPeriod - accruedOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
 
     fun calculateProfit(
         settings: FinanceParameters,
@@ -44,20 +44,21 @@ data class LocalBond(
 
         val investmentPeriod: Int = getInvestmentPeriod(investmentDate)
         val couponCount = getCouponCount(investmentPeriod)
-        val nkd = getNkdEsteem(investmentPeriod)
-        val bondCost = getBondCost(buyCommission, nkd)
+        val accrued = getAccruedEsteem(investmentPeriod)
+        val bondCost = getBondCost(buyCommission, accrued)
         val totalCouponValue = getTotalCouponValue(couponCount)
         val couponRate = getNominalCouponRate(settings)
-        val coupons = getCoupons(couponCount)
+        val bondization = getBondization(settings, couponCount)
         val totalReturn = bondValue + totalCouponValue
         val totalProfit = totalReturn - bondCost
         val totalProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, totalReturn)
         val cleanProfit = totalProfit * (1 - tax)
         val cleanReturn = bondCost + cleanProfit
         val cleanProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, cleanReturn)
-        val commission = bondPrice * buyCommission
+        val commission = this@LocalBond.bondPrice * buyCommission
         val cleanCoupon = couponValue * (1 - tax)
-        val priceRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondPrice, bondValue)
+        val priceRatePercentage = calculateYearlyPercentage(settings, investmentPeriod,
+            this@LocalBond.bondPrice, bondValue)
 
         val bondReinvestProfit =
             calculateBondReinvestProfit(
@@ -88,9 +89,9 @@ data class LocalBond(
             investmentDate,
             investmentPeriod,
             bondCost,
-            bondPrice,
-            nkd,
-            getNkdEsteem(0),
+            this@LocalBond.bondPrice,
+            accrued,
+            getAccruedEsteem(0),
             commission,
             priceRatePercentage,
             totalReturn,
@@ -110,7 +111,7 @@ data class LocalBond(
             depositEffectiveProfitReinvestPercentage,
             depositEffectiveProfitRatePercentage,
             couponRate,
-            coupons,
+            bondization,
             couponCount,
             totalCouponValue,
         ).withLots(numberOfLots)
@@ -131,7 +132,7 @@ data class LocalBond(
             val newBondPrice =
                 bondValue / calculateReturn(settings, couponPeriodDays * (couponCount - 1 - it), 1.0, priceRate)
             //            val newBondPrice = bondValue - (bondValue - bondPrice) / investmentPeriod * (couponPeriodDays * (couponCount - 1 - it))
-            val newBondCost = newBondPrice * (1 + buyCommission) + getNkdEsteem(0)
+            val newBondCost = newBondPrice * (1 + buyCommission) + getAccruedEsteem(0)
             reinvestBondsCount += newCoupon / newBondCost
             reinvestCost += newCoupon
         }
@@ -142,14 +143,18 @@ data class LocalBond(
         return reinvestReturn - reinvestTotalProfit * tax - cleanCoupon * (couponCount - 1)
     }
 
-    fun getCoupons(couponCount: Int): List<Coupon> {
-        val result = mutableListOf<Coupon>()
+    fun getBondization(settings: FinanceParameters, couponCount: Int): List<BondPayment> {
+        val result = mutableListOf<BondPayment>()
 
+        val nominalCouponRate = getNominalCouponRate(settings)
         repeat(couponCount) { idx ->
+            result.add(BondPayment(BondPaymentType.Amortization, bondMaturityEpochDay, bondValue, 100.0))
             result.add(
-                Coupon(
-                    bondReturnDate.minusDays((couponPeriodDays * (couponCount - idx - 1)).toLong()),
-                    couponValue
+                BondPayment(
+                    BondPaymentType.Coupon,
+                    maturityDate.minusDays((couponPeriodDays * (couponCount - idx - 1)).toLong()).toEpochDay(),
+                    couponValue,
+                    nominalCouponRate
                 )
             )
         }
@@ -162,7 +167,7 @@ data class LocalBond(
 
     private fun getTotalCouponValue(couponCount: Int): Double = couponValue * couponCount
 
-    private fun getBondCost(buyCommission: Double, nkd: Double): Double = bondPrice * (1 + buyCommission) + nkd
+    private fun getBondCost(buyCommission: Double, accrued: Double): Double = this@LocalBond.bondPrice * (1 + buyCommission) + accrued
 
     fun calculateDepositReinvestProfit(
         settings: FinanceParameters,
@@ -194,7 +199,7 @@ data class LocalBond(
                 Json.decodeFromString(serializer(), string)
         }
 
-        fun getNkdOffset(
+        fun getAccruedOffset(
             accruedDate: LocalDate,
             accruedInt: Double,
             couponValue: Double,
@@ -209,10 +214,6 @@ data class LocalBond(
         }
     }
 
-    data class Coupon(val date: LocalDate, val value: Double) {
-        operator fun times(ratio: Double): Coupon = copy(value = value * ratio)
-    }
-
     data class CalculateResult(
         val tax: Double,
         val commissionPercentage: Double,
@@ -221,9 +222,9 @@ data class LocalBond(
         val investmentDate: LocalDate,
         val investmentPeriod: Int,
         val investmentCost: Double,
-        val bondsCost: Double,
-        val nkd: Double,
-        val reinvestNkd: Double,
+        val bondPrice: Double,
+        val accrued: Double,
+        val reinvestAccrued: Double,
         val buyCommission: Double,
         val priceRatePercentage: Double,
 
@@ -248,7 +249,7 @@ data class LocalBond(
         val depositEffectiveProfitRatePercentage: Double,
 
         val nominalCouponRate: Double,
-        val coupons: List<Coupon>,
+        val bondization: List<BondPayment>,
         val couponCount: Int,
         val totalCouponValue: Double,
     ) {
@@ -257,8 +258,8 @@ data class LocalBond(
             return copy(
                 numberOfLots = number,
                 investmentCost = investmentCost * ratio,
-                bondsCost = bondsCost * ratio,
-                nkd = nkd * ratio,
+                bondPrice = bondPrice * ratio,
+                accrued = accrued * ratio,
                 buyCommission = buyCommission * ratio,
 
                 totalReturn = totalReturn * ratio,
@@ -274,7 +275,7 @@ data class LocalBond(
                 depositEffectiveReturn = depositEffectiveReturn * ratio,
                 depositReinvestProfit = depositReinvestProfit * ratio,
                 depositEffectiveProfit = depositEffectiveProfit * ratio,
-                coupons = coupons.map { it * ratio },
+                bondization = bondization.map { it * ratio },
                 totalCouponValue = totalCouponValue * ratio,
             )
         }

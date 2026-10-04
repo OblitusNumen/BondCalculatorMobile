@@ -65,7 +65,9 @@ data class Bond(
     val callOptionDate: String?,            // CALLOPTIONDATE
     val putOptionDate: String?,             // PUTOPTIONDATE
     val bondType: String?,                  // BONDTYPE
-    val bondSubType: String?                // BONDSUBTYPE
+    val bondSubType: String?,               // BONDSUBTYPE
+    val couponDetails: String?,             // COUPON_DETAILS
+    val faceValueType: String?,             // FACEVALUE_TYPE
 ) {
     companion object {
         fun fromMap(map: Map<String, String?>): Bond {
@@ -95,7 +97,9 @@ data class Bond(
                 callOptionDate = map["CALLOPTIONDATE"],
                 putOptionDate = map["PUTOPTIONDATE"],
                 bondType = map["BONDTYPE"],
-                bondSubType = map["BONDSUBTYPE"]
+                bondSubType = map["BONDSUBTYPE"],
+                couponDetails = map["COUPON_DETAILS"],
+                faceValueType = map["FACEVALUE_TYPE"]
             )
         }
 
@@ -130,7 +134,9 @@ data class Bond(
                 callOptionDate = row.getOrNull(40),
                 putOptionDate = row.getOrNull(41),
                 bondType = row.getOrNull(43),
-                bondSubType = row.getOrNull(44)
+                bondSubType = row.getOrNull(44),
+                couponDetails = row.getOrNull(45),
+                faceValueType = row.getOrNull(46),
             )
         }
     }

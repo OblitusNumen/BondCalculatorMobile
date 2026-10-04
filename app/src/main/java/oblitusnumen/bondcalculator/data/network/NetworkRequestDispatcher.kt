@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 class NetworkRequestDispatcher(val maxConcurrentRequests: Int = 20) : AutoCloseable {
     private val requestCallbacks =
         ConcurrentHashMap<Any, Pair<(suspend (Exception) -> Unit)?, suspend (HttpResponse) -> Unit>>()
+    // TODO: make the value mutable set
 
     private var client = HttpClient()
 

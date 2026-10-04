@@ -35,6 +35,8 @@ data class BondDetailsEntity(
     val putOptionDate: String?,
     val bondType: String?,
     val bondSubType: String?,
+    val couponDetails: String?,
+    val faceValueType: String?,
 
     // MarketData
     val bid: Double?,

@@ -93,7 +93,18 @@ fun formatDoublePercentage(value: Double, digits: Int = 2): String {
     return "${formatDouble(value, digits)}%"
 }
 
-fun formatRubbleValue(value: Double, digits: Int = 2): String = "${formatDouble(value, digits)}₽"
+fun currencySign(currency: String): Char = when (currency) {
+    "USD" -> '$'
+    "EUR" -> '€'
+    "CNY" -> '¥'
+    "RUR", "SUR" -> '₽'
+    else -> '?'
+}
+
+fun formatCurrencyValue(currency: String, value: Double, digits: Int = 2): String =
+    "${formatDouble(value, digits)}${currencySign(currency)}"
+
+fun formatRubbleValue(value: Double, digits: Int = 2): String = formatCurrencyValue("RUR", value, digits)
 
 fun formatPeriod(period: Int): String {
     val years = period / 365

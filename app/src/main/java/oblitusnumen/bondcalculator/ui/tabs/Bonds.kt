@@ -1,20 +1,13 @@
 package oblitusnumen.bondcalculator.ui.tabs
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarOutline
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,29 +16,24 @@ import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily.Companion.Monospace
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import oblitusnumen.bondcalculator.data.network.RemoteDataStatus
 import oblitusnumen.bondcalculator.data.schema.BondDetails
-import oblitusnumen.bondcalculator.data.schema.FinanceParameters
 import oblitusnumen.bondcalculator.data.schema.LocalBond
 import oblitusnumen.bondcalculator.impl.*
-import oblitusnumen.bondcalculator.ui.*
+import oblitusnumen.bondcalculator.ui.DatePicker
 import oblitusnumen.bondcalculator.ui.composition.LocalDataManager
+import oblitusnumen.bondcalculator.ui.cursorToEnd
+import oblitusnumen.bondcalculator.ui.elements.Bond
+import oblitusnumen.bondcalculator.ui.elements.bond
 import oblitusnumen.bondcalculator.ui.screen.MainScreenSettings
+import oblitusnumen.bondcalculator.ui.toLastUpdateString
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -63,7 +51,7 @@ fun BondsTab(
     var favouriteBonds by remember { mutableStateOf(getBondFavourites(context)) }
     var updater by rememberSaveable { mutableStateOf(true) }
     var bonds by remember(updater) {
-        mutableStateOf(getBonds(context).sortedWith(compareBy<LocalBond> { it.bondReturnDate }.thenBy { it.name }
+        mutableStateOf(getBonds(context).sortedWith(compareBy<LocalBond> { it.maturityDate }.thenBy { it.name }
             .thenBy { it.id }))
     }
 
@@ -72,8 +60,9 @@ fun BondsTab(
     val coroutineScope = rememberCoroutineScope()
 
     val dataManager = LocalDataManager.current
-    val displayBond: @Composable (String, String?, LocalBond?, LocalDateTime?, (LocalBond) -> Unit) -> Unit =
+    val displayBond: @Composable (String, String?, BondDetails?, LocalDateTime?, (BondDetails) -> Unit) -> Unit =
         { secId, shortName, bond, updateTime, onUpdateBond ->
+            var updater by remember { mutableStateOf(false) }
             if (updateTime != null) {
                 Row(
                     Modifier.border(
@@ -101,6 +90,7 @@ fun BondsTab(
                     IconButton(
                         {
                             dataManager.bondRepository.refreshBond(secId)
+                            updater = !updater
                         },
                         Modifier.size(24.dp)
                     ) {
@@ -118,23 +108,36 @@ fun BondsTab(
                     )
                 }
             } else {
-                val calculateResult by remember(
+                var calculateResult: BondDetails.CalculateResult? by remember { mutableStateOf(null) }
+                var calculationStatus by remember { mutableStateOf(RemoteDataStatus.Loading) }
+
+                LaunchedEffect(
                     bond,
                     settings,
                     rememberedMainScreenSettings.bondsCommission,
                     rememberedMainScreenSettings.bondsTaxed,
                     LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
-                    rememberedMainScreenSettings.bondNumberOfLots
+                    rememberedMainScreenSettings.bondNumberOfLots,
+                    updater
                 ) {
-                    mutableStateOf(
-                        bond!!.calculateProfit(
+                    calculationStatus = RemoteDataStatus.Loading
+                    val bondization = dataManager.bondizationRepository.getBondization(secId)
+                    if (bondization == null || bondization.isEmpty()) {
+                        println("Calculation $secId fail")
+                        calculationStatus = RemoteDataStatus.Failed
+                    } else {
+                        println("Calculation $secId")
+                        calculationStatus = RemoteDataStatus.Loaded
+                        calculateResult = bond.calculateProfit(
+                            bondization,
                             settings,
                             rememberedMainScreenSettings.bondsCommission,
                             rememberedMainScreenSettings.bondsTaxed,
                             LocalDate.ofEpochDay(rememberedMainScreenSettings.bondsInvestmentDate),
                             rememberedMainScreenSettings.bondNumberOfLots,
                         )
-                    )
+                        println("Calculation result $secId: $calculateResult")
+                    }
                 }
 
                 var saveBondShown by remember { mutableStateOf(false) }
@@ -149,14 +152,14 @@ fun BondsTab(
                             TextButton({
                                 val id = getBondId(context)
                                 incBondId(context)
-                                saveBond(context, bond!!.copy(id = id))
+                                saveBond(context, bond.toLocalBond(id))
                                 updater = !updater
                                 saveBondShown = false
                             }) { Text("Save") }
                         }, title = { Text("Save bond $shortName") })
                 }
 
-                Bond(bond!!, calculateResult, favouriteBonds.contains(secId), {
+                Bond(bond, calculateResult, favouriteBonds.contains(secId), {
                     if (it) {
                         favouriteBonds += secId
                     } else {
@@ -169,7 +172,7 @@ fun BondsTab(
 
     val searchedBonds by remember(bonds, search) {
         mutableStateOf(bonds.filter { it.name.contains(search, true) }
-            .sortedWith(compareBy<LocalBond> { it.name.indexOf(search) }.thenBy { it.bondReturnDate }.thenBy { it.name }
+            .sortedWith(compareBy<LocalBond> { it.name.indexOf(search) }.thenBy { it.maturityDate }.thenBy { it.name }
                 .thenBy { it.id }))
     }
 
@@ -257,13 +260,13 @@ fun BondsTab(
                             } else {
                                 for ((secId, shortName) in remoteBonds!!) {
                                     item(key = "market:$secId") {
-                                        var bond: LocalBond? by remember { mutableStateOf(null) }
+                                        var bond: BondDetails? by remember { mutableStateOf(null) }
                                         var updateTime: LocalDateTime? by remember { mutableStateOf(null) }
 
                                         DisposableEffect(secId) {
                                             val callback: (BondDetails?, LocalDateTime?) -> Unit =
                                                 { bondDetails, lastUpdate ->
-                                                    bond = bondDetails?.toLocalBond()
+                                                    bond = bondDetails
                                                     updateTime = lastUpdate
                                                 }
                                             dataManager.bondRepository.getBondSubscribe(secId, callback)
@@ -332,13 +335,13 @@ fun BondsTab(
 
                 for (secId in (favouriteBonds - (remoteBonds?.map { it.first }?.toSet() ?: emptySet())).sorted()) {
                     item(key = "favourite:$secId") {
-                        var bond: LocalBond? by remember { mutableStateOf(null) }
+                        var bond: BondDetails? by remember { mutableStateOf(null) }
                         var updateTime: LocalDateTime? by remember { mutableStateOf(null) }
 
                         DisposableEffect(secId) {
                             val callback: (BondDetails?, LocalDateTime?) -> Unit =
                                 { bondDetails, lastUpdate ->
-                                    bond = bondDetails?.toLocalBond()
+                                    bond = bondDetails
                                     updateTime = lastUpdate
                                 }
                             dataManager.bondRepository.getBondSubscribe(secId, callback)
@@ -452,632 +455,6 @@ fun BondsTab(
         }
 
         Spacer(Modifier.height(paddingValues.calculateBottomPadding()))
-    }
-}
-
-fun LazyListScope.bond(
-    key: Any,
-    bond: LocalBond,
-    settings: FinanceParameters,
-    hasCommission: Boolean,
-    isTaxed: Boolean,
-    investmentDate: LocalDate,
-    numberOfLots: Int,
-    bonds: List<LocalBond>,
-    openEditBond: (Int?) -> Unit,
-    onBondSave: (LocalBond) -> Unit
-) {
-    item(key = key) {
-        val calculateResult by remember(settings, hasCommission, isTaxed, investmentDate, numberOfLots, bonds) {
-            mutableStateOf(
-                bond.calculateProfit(
-                    settings,
-                    hasCommission,
-                    isTaxed,
-                    investmentDate,
-                    numberOfLots
-                )
-            )
-        }
-
-        Bond(bond, calculateResult, null, null, openEditBond, onBondSave)
-    }
-}
-
-@Composable
-fun Bond(
-    bond: LocalBond,
-    calculateResult: LocalBond.CalculateResult,
-    isFavourite: Boolean? = null,
-    onIsFavouriteUpdate: ((Boolean) -> Unit)? = null,
-    openEditBond: (Int?) -> Unit?,
-    onBondUpdate: (LocalBond) -> Unit
-) {
-    Column(
-        Modifier.clickable {
-            openEditBond(bond.id)
-        }.fillMaxWidth().padding(4.dp).background(
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-            shape = RoundedCornerShape(8.dp)
-        ).clip(RoundedCornerShape(8.dp)),
-    ) {
-        //name
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(top = 4.dp),
-            verticalAlignment = CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            if (isFavourite != null) {
-                IconButton(onClick = { onIsFavouriteUpdate?.invoke(!isFavourite) }) {
-                    Icon(
-                        if (isFavourite) Icons.Default.Star else Icons.Default.StarOutline,
-                        contentDescription = null
-                    )
-                }
-            }
-            Text(bond.name, fontWeight = FontWeight.Bold, modifier = Modifier.padding(4.dp).weight(1f))
-            val value = calculateResult.effectiveProfitRatePercentage
-            Text(
-                formatDoublePercentage(value),
-                textAlign = TextAlign.End
-            )
-            var allParametersShown by remember { mutableStateOf(false) }
-            IconButton(onClick = { allParametersShown = true }) {
-                Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(20.dp))
-            }
-            if (allParametersShown) {
-                AllParametersDialog(
-                    bond,
-                    calculateResult,
-                ) { allParametersShown = false }
-            }
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            //edit price
-            var bondPriceText: TextFieldValue by remember {
-                mutableStateOf(
-                    TextFieldValue(
-                        formatDouble(
-                            bond.bondPricePrcnt,
-                            4
-                        )
-                    ).cursorToEnd()
-                )
-            }
-            OutlinedTextField(
-                value = bondPriceText,
-                onValueChange = {
-                    val fieldValue = it.copy(it.text.replace(',', '.'))
-                    try {
-                        if (fieldValue.text.isNotEmpty()) {
-                            onBondUpdate(bond.copy(bondPricePrcnt = fieldValue.text.toDouble()))
-                        }
-                        bondPriceText = fieldValue
-                    } catch (_: Exception) {
-                    }
-                },
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp).weight(1f),
-                label = @Composable { Text("Bond price") },
-                trailingIcon = {
-                    Text("%")
-                },
-                shape = RoundedCornerShape(8.dp),
-                keyboardOptions = KeyboardOptions.Default.copy(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done
-                ),
-                maxLines = 1,
-            )
-
-            //coupons
-            Column(Modifier.padding(horizontal = 2.dp), horizontalAlignment = CenterHorizontally) {
-                Text("Coupon rate", fontSize = 8.sp)
-                Text(formatDoublePercentage(calculateResult.nominalCouponRate))
-            }
-            Column(Modifier.padding(horizontal = 2.dp), horizontalAlignment = CenterHorizontally) {
-                Text("Total coupons", fontSize = 8.sp)
-                Text(calculateResult.couponCount.toString())
-            }
-            var couponsShown by remember { mutableStateOf(false) }
-            IconButton(onClick = { couponsShown = true }, Modifier.padding(horizontal = 2.dp)) {
-                Icon(
-                    Icons.Rounded.CalendarMonth,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            if (couponsShown) {
-                AlertDialog(onDismissRequest = { couponsShown = false }, confirmButton = {
-                    TextButton(onClick = { couponsShown = false }) {
-                        Text("Ok")
-                    }
-                }, title = { Text("Coupons") }, text = {
-                    LazyColumn(state = rememberLazyListState()) {
-                        calculateResult.coupons.forEachIndexed { index, coupon ->
-                            item {
-                                Row(
-                                    verticalAlignment = CenterVertically,
-                                    modifier = (if (index % 2 == 0) Modifier.background(
-                                        Color.Gray.copy(
-                                            alpha = 0.1f
-                                        )
-                                    ) else Modifier).fillMaxWidth().padding(4.dp).padding(end = 12.dp)
-                                ) {
-                                    Text(
-                                        coupon.date.toString(),
-                                        Modifier.padding(2.dp).weight(1f),
-                                        fontSize = 12.sp,
-                                        textAlign = TextAlign.End
-                                    )
-                                    Text(
-                                        formatRubbleValue(coupon.value),
-                                        Modifier.padding(2.dp).weight(1f),
-                                        fontSize = 12.sp,
-                                        textAlign = TextAlign.End
-                                    )
-                                }
-                            }
-                        }
-                    }
-                })
-            }
-        }
-
-        //result
-        Row(horizontalArrangement = Arrangement.SpaceEvenly) {
-            Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                ParameterRow(
-                    "НКД",
-                    formatRubbleValue(calculateResult.nkd),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Commission",
-                    formatRubbleValue(calculateResult.buyCommission),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Cost",
-                    formatRubbleValue(calculateResult.investmentCost),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Duration",
-                    formatPeriod(calculateResult.investmentPeriod),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-            }
-            Column(Modifier.weight(1f)) {
-                ParameterRow(
-                    "Clean profit",
-                    formatDoublePercentage(calculateResult.cleanProfitRatePercentage),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Clean profit",
-                    formatRubbleValue(calculateResult.cleanProfit),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Effective profit",
-                    formatRubbleValue(calculateResult.effectiveProfit),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Return date",
-                    bond.bondReturnDate.toString(),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-fun AllParametersDialog(
-    bond: LocalBond,
-    calculateResult: LocalBond.CalculateResult,
-    onClose: () -> Unit
-) {
-    Dialog(
-        onClose,
-        DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)
-    ) {
-        Column(Modifier.background(MaterialTheme.colorScheme.background).padding(horizontal = 8.dp).fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("All Parameters", style = MaterialTheme.typography.titleLarge)
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Rounded.Close, contentDescription = null)
-                }
-            }
-
-            LazyColumn(Modifier.fillMaxWidth()) {// TODO: add duration
-                val padding = 48.dp
-                item {
-                    Text(bond.name)
-                    ParameterRow(
-                        "Value",
-                        formatRubbleValue(bond.bondValue),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Price",
-                        formatRubbleValue(bond.bondPrice),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Coupon",
-                        formatRubbleValue(bond.couponValue),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Investment date",
-                        calculateResult.investmentDate.toString(),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Return date",
-                        bond.bondReturnDate.toString(),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Investment span",
-                        "${formatPeriod(calculateResult.investmentPeriod)}${if (calculateResult.investmentPeriod > 30) " / ${calculateResult.investmentPeriod}d" else ""}",
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Reinvest НКД",
-                        formatRubbleValue(calculateResult.reinvestNkd),
-                        Modifier.padding(horizontal = padding)
-                    )
-                }
-                item {
-                    Spacer(Modifier.height(12.dp))
-                    Text("Efficiency")
-                    ParameterRow(
-                        "Price rate",
-                        formatDoublePercentage(calculateResult.priceRatePercentage),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    EfficiencyTable(calculateResult)
-                }
-                item {
-                    Spacer(Modifier.height(12.dp))
-                    Text("Investment cost")
-                    ParameterRow(
-                        "Investment cost",
-                        formatRubbleValue(calculateResult.investmentCost),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Bonds cost",
-                        formatRubbleValue(calculateResult.bondsCost),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "НКД",
-                        formatRubbleValue(calculateResult.nkd),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Commission",
-                        formatRubbleValue(calculateResult.buyCommission),
-                        Modifier.padding(horizontal = padding)
-                    )
-                }
-                item {
-                    Spacer(Modifier.height(12.dp))
-                    Text("Coupons")
-                    ParameterRow(
-                        "Nominal rate",
-                        formatDoublePercentage(calculateResult.nominalCouponRate),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Coupon amount",
-                        formatRubbleValue(calculateResult.coupons.firstOrNull()?.value ?: 0.0),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Coupon count",
-                        "${calculateResult.couponCount}",
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Total coupon value",
-                        formatRubbleValue(calculateResult.totalCouponValue),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Reinvest НКД",
-                        formatRubbleValue(calculateResult.reinvestNkd),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Next coupon",
-                        calculateResult.coupons.firstOrNull()?.date?.toString() ?: "-",
-                        Modifier.padding(horizontal = padding)
-                    )
-                }
-                item {
-                    Spacer(Modifier.height(12.dp))
-                    Text("Calculation parameters")
-                    ParameterRow(
-                        "Tax",
-                        formatDoublePercentage(calculateResult.tax),
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Commission",
-                        "${calculateResult.commissionPercentage.toSigFigString()}%",
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Deposit reinvestment rate",
-                        "${calculateResult.depositReinvestmentRatePercentage}%",
-                        Modifier.padding(horizontal = padding)
-                    )
-                    ParameterRow(
-                        "Lots",
-                        calculateResult.numberOfLots.toString(),
-                        Modifier.padding(horizontal = padding)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun EfficiencyTable(calculateResult: LocalBond.CalculateResult) {
-    LazyRow(state = rememberLazyListState()) {
-        item {
-            Column(Modifier.width(IntrinsicSize.Max)) {
-                Text(
-                    "Parameter",
-                    Modifier.background(MaterialTheme.colorScheme.onBackground.copy(alpha = .2f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace
-                )
-                Text(
-                    "Profit rate",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = Monospace
-                )
-                Text(
-                    "Profit",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = Monospace
-                )
-                Text(
-                    "Reinvestment profit",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = Monospace
-                )
-                Text(
-                    "Reinvestment profit %",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = Monospace
-                )
-                Text(
-                    "Return",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Start,
-                    fontFamily = Monospace
-                )
-            }
-        }
-        item {
-            Column(Modifier.width(IntrinsicSize.Max)) {
-                Text(
-                    "Effective",
-                    Modifier.background(MaterialTheme.colorScheme.onBackground.copy(alpha = .2f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace
-                )
-                Text(
-                    formatDoublePercentage(calculateResult.effectiveProfitRatePercentage),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.effectiveProfit),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.reinvestProfit),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatDoublePercentage(calculateResult.effectiveProfitReinvestPercentage),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.effectiveReturn),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-            }
-        }
-        item {
-            Column(Modifier.width(IntrinsicSize.Max)) {
-                Text(
-                    "Clean",
-                    Modifier.background(MaterialTheme.colorScheme.onBackground.copy(alpha = .2f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace
-                )
-                Text(
-                    formatDoublePercentage(calculateResult.cleanProfitRatePercentage),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.cleanProfit),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    "-",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    "-",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.cleanReturn),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-            }
-        }
-        item {
-            Column(Modifier.width(IntrinsicSize.Max)) {
-                Text(
-                    "Untaxed",
-                    Modifier.background(MaterialTheme.colorScheme.onBackground.copy(alpha = .2f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatDoublePercentage(calculateResult.totalProfitRatePercentage),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.totalProfit),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    "-",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    "-",
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.totalReturn),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-            }
-        }
-        item {
-            Column(Modifier.width(IntrinsicSize.Max)) {
-                Text(
-                    "Deposit",
-                    Modifier.background(MaterialTheme.colorScheme.onBackground.copy(alpha = .2f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontFamily = Monospace
-                )
-                Text(
-                    formatDoublePercentage(calculateResult.depositEffectiveProfitRatePercentage),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.depositEffectiveProfit),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.depositReinvestProfit),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatDoublePercentage(calculateResult.depositEffectiveProfitReinvestPercentage),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-                Text(
-                    formatRubbleValue(calculateResult.depositEffectiveReturn),
-                    Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.End,
-                    fontFamily = Monospace,
-                )
-            }
-        }
     }
 }
 

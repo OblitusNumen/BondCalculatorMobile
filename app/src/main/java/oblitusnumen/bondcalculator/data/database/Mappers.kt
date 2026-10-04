@@ -35,7 +35,9 @@ fun BondDetailsEntity.toDomain(): BondDetails =
             callOptionDate = callOptionDate,
             putOptionDate = putOptionDate,
             bondType = bondType,
-            bondSubType = bondSubType
+            bondSubType = bondSubType,
+            couponDetails = couponDetails,
+            faceValueType = faceValueType,
         ),
 
         marketData = MarketData(
@@ -115,6 +117,8 @@ fun BondDetails.toEntity(
         putOptionDate = b.putOptionDate,
         bondType = b.bondType,
         bondSubType = b.bondSubType,
+        couponDetails = b.couponDetails,
+        faceValueType = b.faceValueType,
 
         bid = m.bid,
         offer = m.offer,

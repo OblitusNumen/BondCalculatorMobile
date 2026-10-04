@@ -36,13 +36,13 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
                 couponPeriodDays = DEFAULT_COUPON_PERIOD,
                 couponValue = 0.0,
                 bondPricePrcnt = 100.0,
-                nkdOffset = 0
+                accruedOffset = 0
             )
         )
     }
     var nameText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.name).cursorToEnd()) }
     var bondValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.bondValue.toString()).cursorToEnd()) }
-    var bondReturnDateText: LocalDate by remember { mutableStateOf(bond.bondReturnDate) }
+    var bondReturnDateText: LocalDate by remember { mutableStateOf(bond.maturityDate) }
     var couponPeriodDaysText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.couponPeriodDays.toString()).cursorToEnd()) }
     var couponValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.couponValue.toString()).cursorToEnd()) }
     var bondPriceText: TextFieldValue by remember {
@@ -55,7 +55,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
             ).cursorToEnd()
         )
     }
-    var nkdOffsetText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.nkdOffset.toString()).cursorToEnd()) }
+    var accruedOffsetText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.accruedOffset.toString()).cursorToEnd()) }
     val bondPriceFocusRequester = remember { FocusRequester() }
     val bondValueFocusRequester = remember { FocusRequester() }
     val couponPeriodDaysFocusRequester = remember { FocusRequester() }
@@ -67,7 +67,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
         }, bondReturnDateText)
     }
     val couponValueFocusRequester = remember { FocusRequester() }
-    val nkdOffsetFocusRequester = remember { FocusRequester() }
+    val accruedOffsetFocusRequester = remember { FocusRequester() }
 
     BackHandler(onBack = backPress)
 
@@ -165,23 +165,23 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
                 },
                 keyboardType = KeyboardType.Decimal,
                 focusRequester = couponValueFocusRequester,
-                nextFocusRequester = nkdOffsetFocusRequester
+                nextFocusRequester = accruedOffsetFocusRequester
             ) {
                 Text("₽")
             }
 
             addSetting(
-                "НКД offset", nkdOffsetText,
+                "Accrued offset", accruedOffsetText,
                 {
                     try {
                         if (it.text.isNotEmpty() && it.text != "-")
-                            bond = bond.copy(nkdOffset = it.text.toInt())
-                        nkdOffsetText = it
+                            bond = bond.copy(accruedOffset = it.text.toInt())
+                        accruedOffsetText = it
                     } catch (_: Exception) {
                     }
                 },
                 KeyboardType.Number,
-                focusRequester = nkdOffsetFocusRequester,
+                focusRequester = accruedOffsetFocusRequester,
                 onDone = { defaultKeyboardAction(ImeAction.Done) }
             ) {
                 Text("d")

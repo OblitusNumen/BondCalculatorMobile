@@ -4,10 +4,12 @@ import AppDatabase
 import android.content.Context
 import androidx.room.Room
 import kotlinx.coroutines.CoroutineScope
+import oblitusnumen.bondcalculator.data.database.dao.BondizationDao
 import oblitusnumen.bondcalculator.data.database.dao.CandleDao
 import oblitusnumen.bondcalculator.data.database.dao.CurrencyRateDao
 import oblitusnumen.bondcalculator.data.network.NetworkRequestDispatcher
 import oblitusnumen.bondcalculator.data.repository.BondRepository
+import oblitusnumen.bondcalculator.data.repository.BondizationRepository
 import oblitusnumen.bondcalculator.data.repository.CandleRepository
 import oblitusnumen.bondcalculator.data.repository.CurrencyRateRepository
 import oblitusnumen.bondcalculator.data.repository.SecurityRepository
@@ -27,6 +29,12 @@ class AppDataManager(context: Context) : AutoCloseable {
     val bondRepository: BondRepository =
         BondRepository(
             dao = database.bondDetailsDao(),
+            dispatcher = dispatcher
+        )
+
+    val bondizationRepository: BondizationRepository =
+        BondizationRepository(
+            dao = BondizationDao(context.cacheDir),
             dispatcher = dispatcher
         )
 
