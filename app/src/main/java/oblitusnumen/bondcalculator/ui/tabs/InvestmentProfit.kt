@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -62,11 +62,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
         item {
             Row(modifier = Modifier.padding(8.dp).fillParentMaxWidth(), verticalAlignment = CenterVertically, horizontalArrangement = SpaceBetween) {
                 val currentFunction = calculationTarget == CalculationTarget.InitialDeposit
-                OutlinedTextField(
+                TextField(
                     value = initialDepositText,
                     onValueChange = {
                         if (currentFunction)
-                            return@OutlinedTextField
+                            return@TextField
 
                         val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
@@ -98,11 +98,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
         item {
             Row(modifier = Modifier.padding(8.dp).fillParentMaxWidth(), verticalAlignment = CenterVertically, horizontalArrangement = SpaceBetween) {
                 val currentFunction = calculationTarget == CalculationTarget.MonthlyDeposit
-                OutlinedTextField(
+                TextField(
                     value = monthlyDepositText,
                     onValueChange = {
                         if (currentFunction)
-                            return@OutlinedTextField
+                            return@TextField
 
                         val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
@@ -134,11 +134,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
         item {
             Row(modifier = Modifier.padding(8.dp).fillParentMaxWidth(), verticalAlignment = CenterVertically, horizontalArrangement = SpaceBetween) {
                 val currentFunction = calculationTarget == CalculationTarget.Rate
-                OutlinedTextField(
+                TextField(
                     value = rateText,
                     onValueChange = {
                         if (currentFunction)
-                            return@OutlinedTextField
+                            return@TextField
 
                         val fieldValue = it.copy(it.text.replace(',', '.'))
                         try {
@@ -169,7 +169,7 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
         // span
         item {
             Row(modifier = Modifier.padding(8.dp).fillParentMaxWidth(), verticalAlignment = CenterVertically, horizontalArrangement = SpaceBetween) {
-                OutlinedTextField(
+                TextField(
                     value = yearsText,
                     onValueChange = {
                         try {
@@ -202,11 +202,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
             Row(modifier = Modifier.padding(8.dp).fillMaxWidth(), verticalAlignment = CenterVertically, horizontalArrangement = SpaceBetween) {
                 val currentFunction = calculationTarget == CalculationTarget.Profit
                 Column(Modifier.weight(1f)) {
-                    OutlinedTextField(
+                    TextField(
                         value = totalReturnText,
                         onValueChange = {
                             if (currentFunction)
-                                return@OutlinedTextField
+                                return@TextField
 
                             val fieldValue = it.copy(it.text.replace(',', '.'))
                             try {
@@ -231,11 +231,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
                         maxLines = 1,
                     )
 
-                    OutlinedTextField(
+                    TextField(
                         value = cleanReturnText,
                         onValueChange = {
                             if (currentFunction)
-                                return@OutlinedTextField
+                                return@TextField
 
                             val fieldValue = it.copy(it.text.replace(',', '.'))
                             try {
@@ -260,11 +260,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
                         maxLines = 1,
                     )
 
-                    OutlinedTextField(
+                    TextField(
                         value = cleanProfitText,
                         onValueChange = {
                             if (currentFunction)
-                                return@OutlinedTextField
+                                return@TextField
 
                             val fieldValue = it.copy(it.text.replace(',', '.'))
                             try {
@@ -289,11 +289,11 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
                         maxLines = 1,
                     )
 
-                    OutlinedTextField(
+                    TextField(
                         value = purchasingPowerText,
                         onValueChange = {
                             if (currentFunction)
-                                return@OutlinedTextField
+                                return@TextField
 
                             val fieldValue = it.copy(it.text.replace(',', '.'))
                             try {
