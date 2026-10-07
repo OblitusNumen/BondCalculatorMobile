@@ -7,37 +7,61 @@ import kotlin.math.pow
 fun calculateInvestmentProfit(
     tax: Double,
     inflation: Double,
-    rate: Double,
-    initialSum: Double,
+    ratePercentage: Double,
+    initialDeposit: Double,
     monthlyDeposit: Double,
     t: Int,
 ): InvestmentProfitCalculateResult {
 //    val tax = 13.0
 //    val inflation = 7.0
 //
-//    val rate = 16.0
-//    val initialSum = 710000.0
+//    val ratePercentage = 16.0
+//    val initialDeposit = 710000.0
 //    val monthlyDeposit = 15000.0
 //    val t = 5
 
-    val monthlyRate = (1 + rate * .01).pow(1.0 / 12)
+    val monthlyRate = (1 + ratePercentage * .01).pow(1.0 / 12)
     val tMonths = t * 12
-    var s = initialSum
+    var s = initialDeposit
 
     repeat(tMonths) { s = s * monthlyRate + monthlyDeposit }
 
-    val input = initialSum + tMonths * monthlyDeposit
+    val input = initialDeposit + tMonths * monthlyDeposit
     val profit = (s - input) * (1 - tax * .01)
     val clean = profit + input
     val inflationResult = clean / (1 + inflation * .01).pow(t)
 
-    return InvestmentProfitCalculateResult(s, clean, profit, inflationResult)
+    return InvestmentProfitCalculateResult(
+        initialDeposit,
+        monthlyDeposit,
+        ratePercentage,
+        t,
+        initialDeposit + tMonths * monthlyDeposit,
+        s,
+        clean,
+        profit,
+        inflationResult,
+        inflation,
+        tax
+    )
 }
 
-data class InvestmentProfitCalculateResult(val totalReturn: Double, val cleanReturn: Double, val cleanProfit: Double, val purchasingPower: Double)
+data class InvestmentProfitCalculateResult(
+    val initialDeposit: Double,
+    val monthlyDeposit: Double,
+    val ratePercentage: Double,
+    val tYears: Int,
+    val investmentSum: Double,
+    val totalReturn: Double,
+    val cleanReturn: Double,
+    val cleanProfit: Double,
+    val purchasingPower: Double,
+    val inflationPercentage: Double,
+    val taxPercentage: Double
+)
 
 /**
- * Computes the final value of monthly deposits alone (initialSum = 0),
+ * Computes the final value of monthly deposits alone (initialDeposit = 0),
  * used as a helper constant in the reverse formula.
  */
 private fun depositsGrowth(monthlyDeposit: Double, monthlyRate: Double, months: Int): Double {
@@ -48,17 +72,17 @@ private fun depositsGrowth(monthlyDeposit: Double, monthlyRate: Double, months: 
 
 /**
  * Reverse function: given a target purchasing power (inflationResult),
- * find the initialSum required to reach it.
+ * find the initialDeposit required to reach it.
  */
-fun requiredInitialSum(
+fun requiredinitialDeposit(
     tax: Double = 13.0,
     inflation: Double = 7.0,
     targetPurchasingPower: Double,
     monthlyDeposit: Double = 15000.0,
     years: Int = 5,
-    rate: Double = 16.0
+    ratePercentage: Double = 16.0
 ): Double {
-    val monthlyRate = (1 + rate * .01).pow(1.0 / 12)
+    val monthlyRate = (1 + ratePercentage * .01).pow(1.0 / 12)
     val tMonths = years * 12
 
     val R = monthlyRate.pow(tMonths)
@@ -82,17 +106,17 @@ private fun unitDepositGrowth(monthlyRate: Double, months: Int): Double {
 
 /**
  * Reverse function: given a target purchasing power (inflationResult) and a fixed
- * initialSum, find the monthlyDeposit required to reach it.
+ * initialDeposit, find the monthlyDeposit required to reach it.
  */
 fun requiredMonthlyDeposit(
     targetPurchasingPower: Double,
-    initialSum: Double = 710000.0,
+    initialDeposit: Double = 710000.0,
     years: Int = 5,
-    rate: Double = 16.0,
+    ratePercentage: Double = 16.0,
     tax: Double = 13.0,
     inflation: Double = 7.0
 ): Double {
-    val monthlyRate = (1 + rate * .01).pow(1.0 / 12)
+    val monthlyRate = (1 + ratePercentage * .01).pow(1.0 / 12)
     val tMonths = years * 12
 
     val R = monthlyRate.pow(tMonths)
@@ -101,7 +125,7 @@ fun requiredMonthlyDeposit(
     val infFactor = (1 + inflation * .01).pow(years)
 
     val C = taxFactor * K + tMonths * (1 - taxFactor)
-    val E = initialSum * (taxFactor * R + (1 - taxFactor))
+    val E = initialDeposit * (taxFactor * R + (1 - taxFactor))
 
     return (targetPurchasingPower * infFactor - E) / C
 }
@@ -111,14 +135,14 @@ private const val MONTHS_PER_YEAR = 12.0
 fun requiredRate(
     tax: Double = 13.0,
     targetPurchasingPower: Double,
-    initialSum: Double = 710000.0,
+    initialDeposit: Double = 710000.0,
     monthlyDeposit: Double = 15000.0,
     years: Int = 5,
     inflation: Double = 7.0,
     guessRate: Double = 0.1
 ): Double {
     val tMonths = years * MONTHS_PER_YEAR.toInt()
-    val input = initialSum + tMonths * monthlyDeposit
+    val input = initialDeposit + tMonths * monthlyDeposit
     val taxFactor = 1 - tax * .01
     val infFactor = (1 + inflation * .01).pow(years)
 
@@ -128,7 +152,7 @@ fun requiredRate(
     val s = profit / taxFactor + input
 
     val flows = buildList {
-        add(CashFlowNormalized(-initialSum, 0.0))
+        add(CashFlowNormalized(-initialDeposit, 0.0))
         for (i in 1..tMonths) {
             add(CashFlowNormalized(-monthlyDeposit, i / MONTHS_PER_YEAR))
         }

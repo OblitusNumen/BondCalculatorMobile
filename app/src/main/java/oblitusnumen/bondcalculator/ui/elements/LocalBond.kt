@@ -182,45 +182,45 @@ fun Bond(
         Row(horizontalArrangement = Arrangement.SpaceEvenly) {
             Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
                 ParameterRow(
-                    "Accrued",
-                    formatRubbleValue(calculateResult.accrued),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Commission",
-                    formatRubbleValue(calculateResult.buyCommission),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
                     "Cost",
                     formatRubbleValue(calculateResult.investmentCost),
                     Modifier.padding(horizontal = 4.dp),
                 )
                 ParameterRow(
-                    "Duration",
-                    formatPeriod(calculateResult.investmentPeriod),
+                    "Accrued",
+                    formatRubbleValue(calculateResult.accrued),
                     Modifier.padding(horizontal = 4.dp),
                 )
+//                ParameterRow(
+//                    "Commission",
+//                    formatRubbleValue(calculateResult.buyCommission),
+//                    Modifier.padding(horizontal = 4.dp),
+//                )
             }
             Column(Modifier.weight(1f)) {
-                ParameterRow(
-                    "Clean profit",
-                    formatDoublePercentage(calculateResult.cleanProfitRatePercentage),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Clean profit",
-                    formatRubbleValue(calculateResult.cleanProfit),
-                    Modifier.padding(horizontal = 4.dp),
-                )
-                ParameterRow(
-                    "Effective profit",
-                    formatRubbleValue(calculateResult.effectiveProfit),
-                    Modifier.padding(horizontal = 4.dp),
-                )
+//                ParameterRow(
+//                    "Clean profit",
+//                    formatDoublePercentage(calculateResult.cleanProfitRatePercentage),
+//                    Modifier.padding(horizontal = 4.dp),
+//                )
+//                ParameterRow(
+//                    "Clean profit",
+//                    formatRubbleValue(calculateResult.cleanProfit),
+//                    Modifier.padding(horizontal = 4.dp),
+//                )
+//                ParameterRow(
+//                    "Effective profit",
+//                    formatRubbleValue(calculateResult.effectiveProfit),
+//                    Modifier.padding(horizontal = 4.dp),
+//                )
                 ParameterRow(
                     "Maturity date",
                     bond.maturityDate.toString(),
+                    Modifier.padding(horizontal = 4.dp),
+                )
+                ParameterRow(
+                    "Duration",
+                    formatPeriod(calculateResult.investmentPeriod),
                     Modifier.padding(horizontal = 4.dp),
                 )
             }
@@ -334,9 +334,10 @@ fun AllParametersDialog(
                         formatDoublePercentage(calculateResult.nominalCouponRate),
                         Modifier.padding(horizontal = padding)
                     )
+                    // FIXME: add currency
                     ParameterRow(
                         "Coupon amount",
-                        formatRubbleValue(calculateResult.bondization.lastCoupon()?.value ?: 0.0),
+                        calculateResult.bondization.lastCoupon()?.value?.let { formatRubbleValue(it) } ?: "-",
                         Modifier.padding(horizontal = padding)
                     )
                     ParameterRow(

@@ -124,7 +124,7 @@ private fun BondRow(bond: Bond, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onClick() }) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = bond.secid, style = MaterialTheme.typography.titleMedium)
+                Text(text = bond.secId, style = MaterialTheme.typography.titleMedium)
                 Text(text = bond.shortname ?: "Без названия")
                 Text(text = "ISIN: " + bond.isin)
                 Text(text = "FaceUnit: " + bond.faceUnit)

@@ -67,7 +67,7 @@ class MoexApiClient : AutoCloseable {
             ?: return emptyList()
 
         val columnNames = columns.map {
-            it.jsonPrimitive.content
+            it.jsonPrimitive.contentOrNull
         }
 
         fun index(name: String): Int =
@@ -140,7 +140,7 @@ class MoexApiClient : AutoCloseable {
             ?: return null to null
 
         val columnNames = columns.map {
-            it.jsonPrimitive.content
+            it.jsonPrimitive.contentOrNull
         }
 
         fun index(name: String): Int =
@@ -227,13 +227,13 @@ class MoexApiClient : AutoCloseable {
             ?: return emptyList()
 
         val columns = securitiesObj["columns"]?.jsonArray
-            ?.map { it.jsonPrimitive.content }
+            ?.map { it.jsonPrimitive.contentOrNull }
             ?: return emptyList()
 
         val dataArray = securitiesObj["data"]?.jsonArray ?: return emptyList()
 
         return dataArray.map { element ->
-            val values = element.jsonArray.map { it.jsonPrimitive.content }
+            val values = element.jsonArray.map { it.jsonPrimitive.contentOrNull }
             val map = columns.zip(values).toMap()
             SecuritySummary(
                 secid = map["secid"] ?: "",
@@ -270,7 +270,7 @@ class MoexApiClient : AutoCloseable {
             return bondDetails.firstOrNull()
         Log.w("MOEX API", "Fetched multiple bonds!!!")
         bondDetails.forEach {
-            Log.w("MOEX API", "\t${it.bond.secid}")
+            Log.w("MOEX API", "\t${it.bond.secId}")
         }
 
         val coherent = bondDetails.firstOrNull { it.bond.faceUnit == it.bond.currencyId }

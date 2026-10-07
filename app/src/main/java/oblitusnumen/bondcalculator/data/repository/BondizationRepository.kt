@@ -3,6 +3,7 @@ package oblitusnumen.bondcalculator.data.repository
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -10,6 +11,7 @@ import oblitusnumen.bondcalculator.data.database.dao.BondizationDao
 import oblitusnumen.bondcalculator.data.network.MoexApiClient.Companion.MOEX_ISS
 import oblitusnumen.bondcalculator.data.network.NetworkRequestDispatcher
 import oblitusnumen.bondcalculator.data.schema.BondPayment
+import java.time.LocalDate
 
 class BondizationRepository(
     private val dao: BondizationDao,
@@ -17,11 +19,12 @@ class BondizationRepository(
 ) {
 
     suspend fun getBondization(
-        bondSecId: String
+        bondSecId: String,
+        validityEpochDay: Long,
     ): List<BondPayment>? {
         val bondizationCache = dao.getBondization(bondSecId)
-        if (bondizationCache != null)
-            return bondizationCache
+        if (bondizationCache != null && bondizationCache.second >= validityEpochDay)
+            return bondizationCache.first
 
         val urlString = "$MOEX_ISS/statistics/engines/stock/markets/bonds/bondization/${bondSecId}.json"
         val limit = 100
@@ -58,10 +61,10 @@ class BondizationRepository(
 
                 val amortizationsCursorColumns = amortizationsCursor?.get("columns")
                     ?.jsonArray
-                    ?.map { it.jsonPrimitive.content }
+                    ?.map { it.jsonPrimitive.contentOrNull }
                 val couponsCursorColumns = couponsCursor?.get("columns")
                     ?.jsonArray
-                    ?.map { it.jsonPrimitive.content }
+                    ?.map { it.jsonPrimitive.contentOrNull }
 
                 val totalAmortizationsIndex = amortizationsCursorColumns?.indexOf("TOTAL")
                 val totalCouponsIndex = couponsCursorColumns?.indexOf("TOTAL")
@@ -72,12 +75,12 @@ class BondizationRepository(
                     else
                         amortizationsCursor["data"]?.jsonArray?.firstOrNull()?.jsonArray?.getOrNull(
                             totalAmortizationsIndex
-                        )?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                        )?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0
                 val totalCoupons =
                     if (totalCouponsIndex == null || totalCouponsIndex < 0)
                         0
                     else
-                        couponsCursor["data"]?.jsonArray?.firstOrNull()?.jsonArray?.getOrNull(totalCouponsIndex)?.jsonPrimitive?.content?.toIntOrNull()
+                        couponsCursor["data"]?.jsonArray?.firstOrNull()?.jsonArray?.getOrNull(totalCouponsIndex)?.jsonPrimitive?.contentOrNull?.toIntOrNull()
                             ?: 0
 
                 quit = totalAmortizations < start + limit && totalCoupons < start + limit
@@ -89,9 +92,9 @@ class BondizationRepository(
             start += limit
         }
 
-        // FIXME:
+        // FIXME: implement warning for when from outdated cache
         if (failed.isNotEmpty())
-            return null
+            return bondizationCache?.first
 //        while (failed.isNotEmpty()) {
 //            failed.toList().forEach { start ->
 //                dispatcher.get(
@@ -112,7 +115,8 @@ class BondizationRepository(
 //        }
 
         val bondization: List<BondPayment> = result.sortedWith(compareBy<BondPayment> { it.epochDay }.thenBy { it.type })
-        dao.saveBondization(bondSecId, bondization)
+        // FIXME: account for trading sessions
+        dao.saveBondization(bondSecId, bondization, LocalDate.now().toEpochDay())
 
         return bondization
     }

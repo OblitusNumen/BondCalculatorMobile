@@ -1,6 +1,7 @@
 package oblitusnumen.bondcalculator.data.schema
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -78,7 +79,7 @@ data class BondDetails(
         isTaxed: Boolean,
         investmentDate: LocalDate,
         numberOfLots: Int,
-    ): CalculateResult {
+    ): CalculateResult? {
         val buyCommission = if (hasCommission) settings.commissionRate else 0.0
         val tax = if (isTaxed) settings.taxPercentage * .01 else 0.0
         var faceValue = bond.faceValue!!
@@ -95,6 +96,8 @@ data class BondDetails(
         }
         val bondPrice = getBondPrice(faceValue)
         val bondization = fullBondization.filter { it.epochDay > investmentEpochDay }
+        if (bondization.isEmpty())
+            return null
         val coupons = bondization.filter { it.type == BondPaymentType.Coupon }
         val totalCouponValue = coupons.sumOf { it.value }
         val couponRate = coupons.lastOrNull()?.valuePercent ?: 0.0
@@ -158,7 +161,7 @@ data class BondDetails(
                 Double.NaN,
                 Double.NaN,
                 couponRate,
-                bondization.reversed(),
+                bondization,
                 coupons.size,
                 totalCouponValue,
                 faceValue
@@ -176,12 +179,19 @@ data class BondDetails(
         val cleanProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, cleanReturn)
         val commission = bondPrice * buyCommission
 
+        println("Calc:${bond.secId}:${bond.shortname}\n")
+
         val priceRatePercentage = xirr(mutableListOf<CashFlow>().apply xirr@{
             add(CashFlow(-bondCost, investmentEpochDay))
             addAll(bondization.filter { it.type == BondPaymentType.Amortization }.map { it.cashFlow })
             println(StringBuilder().apply {
                 this@xirr.forEach {
                     append("${it.amount}:${it.date}")
+                    append("\n")
+                }
+                append("bondization\n")
+                bondization.forEach {
+                    append("${it.type}:${it.value}")
                     append("\n")
                 }
             }.toString())
@@ -265,7 +275,7 @@ data class BondDetails(
             depositEffectiveProfitReinvestPercentage,
             depositEffectiveProfitRatePercentage,
             couponRate,
-            bondization.reversed(),
+            bondization,
             coupons.size,
             totalCouponValue,
             faceValue
@@ -284,10 +294,10 @@ data class BondDetails(
             val marketData = root["marketdata"]?.jsonObject ?: throw IllegalStateException("No 'marketdata' block")
             val marketDataColArray =
                 marketData["columns"]?.jsonArray ?: throw IllegalStateException("No 'columns' array")
-            marketDataColArray.map { it.jsonPrimitive.content }
+            marketDataColArray.map { it.jsonPrimitive.contentOrNull }
             val marketDataMap: MutableMap<Pair<String, String?>, MarketData> = mutableMapOf()
             (marketData["data"]?.jsonArray ?: emptyList()).forEach { row ->
-                MarketData.fromRow(row.jsonArray.map { it.jsonPrimitive.content })
+                MarketData.fromRow(row.jsonArray.map { it.jsonPrimitive.contentOrNull })
                     .apply { marketDataMap[secid to boardid] = this }
             }
 
@@ -311,14 +321,14 @@ data class BondDetails(
             val result: MutableList<BondDetails> = mutableListOf()
 
             repeat(bondDataArray.size) { index ->
-                val bondValues = bondDataArray[index].jsonArray.map { it.jsonPrimitive.content }
+                val bondValues = bondDataArray[index].jsonArray.map { it.jsonPrimitive.contentOrNull }
                 Bond.fromMap(bondColList.zip(bondValues).toMap()).apply {
                     result.add(
                         BondDetails(
                             this,
-                            marketDataMap[secid to boardid] ?: MarketData(secid),
+                            marketDataMap[secId to boardid] ?: MarketData(secId),
 //                            yieldsDataMap[secid to boardid] ?: MarketDataYield(secid),
-                            DataVersion.fromRow(versionData["data"]?.jsonArray?.firstOrNull()?.jsonArray?.map { it.jsonPrimitive.content }
+                            DataVersion.fromRow(versionData["data"]?.jsonArray?.firstOrNull()?.jsonArray?.map { it.jsonPrimitive.contentOrNull }
                                 ?: Array<String?>(4) { null }.toList())
                         )
                     )

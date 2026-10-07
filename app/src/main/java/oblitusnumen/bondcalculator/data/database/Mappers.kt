@@ -10,7 +10,7 @@ import java.time.LocalDate
 fun BondDetailsEntity.toDomain(): BondDetails =
     BondDetails(
         bond = Bond(
-            secid = secid,
+            secId = secid,
             boardid = boardId,
             shortname = shortName,
             couponValue = couponValue,
@@ -90,7 +90,7 @@ fun BondDetails.toEntity(
     val v = dataVersion
 
     return BondDetailsEntity(
-        secid = b.secid,
+        secid = b.secId,
 
         boardId = b.boardid,
         shortName = b.shortname,

@@ -1,6 +1,7 @@
 package oblitusnumen.bondcalculator.data.schema
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -105,7 +106,7 @@ data class Security(
 
             val result: MutableList<Security> = mutableListOf()
             repeat(securityDataArray.size) { index ->
-                val securityValues = securityDataArray[index].jsonArray.map { it.jsonPrimitive.content }
+                val securityValues = securityDataArray[index].jsonArray.map { it.jsonPrimitive.contentOrNull }
                 val valuesMap = securityColList.zip(securityValues).toMap()
                 result.add(
                     fromMap(

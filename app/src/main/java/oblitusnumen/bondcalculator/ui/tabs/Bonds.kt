@@ -1,10 +1,8 @@
 package oblitusnumen.bondcalculator.ui.tabs
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
@@ -21,7 +19,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import oblitusnumen.bondcalculator.data.network.RemoteDataStatus
 import oblitusnumen.bondcalculator.data.schema.BondDetails
@@ -33,7 +30,6 @@ import oblitusnumen.bondcalculator.ui.cursorToEnd
 import oblitusnumen.bondcalculator.ui.elements.Bond
 import oblitusnumen.bondcalculator.ui.elements.bond
 import oblitusnumen.bondcalculator.ui.screen.MainScreenSettings
-import oblitusnumen.bondcalculator.ui.toLastUpdateString
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -63,41 +59,6 @@ fun BondsTab(
     val displayBond: @Composable (String, String?, BondDetails?, LocalDateTime?, (BondDetails) -> Unit) -> Unit =
         { secId, shortName, bond, updateTime, onUpdateBond ->
             var updater by remember { mutableStateOf(false) }
-            if (updateTime != null) {
-                Row(
-                    Modifier.border(
-                        1.dp,
-                        MaterialTheme.colorScheme.onBackground.copy(alpha = .1f),
-                        RoundedCornerShape(4.dp)
-                    ).padding(4.dp).fillMaxWidth(),
-                    verticalAlignment = CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-//                    Text(updateTime.toLastUpdateString())
-                    var updatedString by remember(updateTime) {
-                        mutableStateOf(
-                            LocalDateTime.now().toLastUpdateString(updateTime)
-                        )
-                    }
-                    Text("Updated $updatedString")
-                    LaunchedEffect(updateTime) {
-                        while (true) {
-                            delay(60 * 1000)
-                            updatedString = LocalDateTime.now().toLastUpdateString(updateTime)
-                        }
-                    }
-
-                    IconButton(
-                        {
-                            dataManager.bondRepository.refreshBond(secId)
-                            updater = !updater
-                        },
-                        Modifier.size(24.dp)
-                    ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null)
-                    }
-                }
-            }
             if (bond == null) {
                 Column {
                     Text(
@@ -121,7 +82,7 @@ fun BondsTab(
                     updater
                 ) {
                     calculationStatus = RemoteDataStatus.Loading
-                    val bondization = dataManager.bondizationRepository.getBondization(secId)
+                    val bondization = dataManager.bondizationRepository.getBondization(secId, rememberedMainScreenSettings.bondsInvestmentDate)
                     if (bondization == null || bondization.isEmpty()) {
                         println("Calculation $secId fail")
                         calculationStatus = RemoteDataStatus.Failed
@@ -159,14 +120,17 @@ fun BondsTab(
                         }, title = { Text("Save bond $shortName") })
                 }
 
-                Bond(bond, calculateResult, favouriteBonds.contains(secId), {
+                Bond(bond, updateTime, calculateResult, favouriteBonds.contains(secId), {
                     if (it) {
                         favouriteBonds += secId
                     } else {
                         favouriteBonds -= secId
                     }
                     setBondFavourites(context, favouriteBonds)
-                }, { saveBondShown = true }, onUpdateBond)
+                }, { saveBondShown = true }, {
+                    dataManager.bondRepository.refreshBond(bond.bond.secId)
+                    updater = !updater
+                }, onUpdateBond)
             }
         }
 

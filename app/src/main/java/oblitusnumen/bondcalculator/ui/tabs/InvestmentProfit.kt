@@ -41,6 +41,7 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
 
     var calculationTarget: CalculationTarget by remember { mutableStateOf(CalculationTarget.Profit) }
 
+    var investmentSumText: TextFieldValue by remember(calculationResult) { mutableStateOf(TextFieldValue(calculationResult.investmentSum.format(2)).cursorToEnd()) }
     var totalReturnText: TextFieldValue by remember(calculationResult) { mutableStateOf(TextFieldValue(calculationResult.totalReturn.format(2)).cursorToEnd()) }
     var cleanReturnText: TextFieldValue by remember(calculationResult) { mutableStateOf(TextFieldValue(calculationResult.cleanReturn.format(2)).cursorToEnd()) }
     var cleanProfitText: TextFieldValue by remember(calculationResult) { mutableStateOf(TextFieldValue(calculationResult.cleanProfit.format(2)).cursorToEnd()) }
@@ -251,6 +252,35 @@ fun InvestmentProfitTab(paddingValues: PaddingValues) {
                         },
                         modifier = Modifier.padding(vertical = 4.dp).padding(start = 12.dp, end = 6.dp),
                         label = { Text("Clean return") },
+                        trailingIcon = { Text("₽") },
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions.Default.copy(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done
+                        ),
+                        maxLines = 1,
+                    )
+
+                    TextField(
+                        value = investmentSumText,
+                        onValueChange = {
+                            if (currentFunction)
+                                return@TextField
+
+                            val fieldValue = it.copy(it.text.replace(',', '.'))
+                            try {
+                                if (fieldValue.text.isNotEmpty()) {
+                                    // TODO: calculate profit and the function
+//                                    settings = settings.copy(investmentMonthlyDeposit = fieldValue.text.toDouble())
+//                                    putSettings(context, settings)
+//                                    calculationResult = calculateResult()
+                                }
+                                //cleanReturnText = fieldValue
+                            } catch (_: Exception) {
+                            }
+                        },
+                        modifier = Modifier.padding(vertical = 4.dp).padding(start = 12.dp, end = 6.dp),
+                        label = { Text("Investment sum") },
                         trailingIcon = { Text("₽") },
                         shape = RoundedCornerShape(8.dp),
                         keyboardOptions = KeyboardOptions.Default.copy(

@@ -2,14 +2,17 @@ package oblitusnumen.bondcalculator.data.schema
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
 
-fun List<BondPayment>?.lastCoupon(): BondPayment? = this?.firstOrNull { it.type == BondPaymentType.Coupon }
+fun List<BondPayment>?.lastCoupon(): BondPayment? = this?.lastOrNull { it.type == BondPaymentType.Coupon }
 
-fun List<BondPayment>?.lastAmortization(): BondPayment? = this?.firstOrNull { it.type == BondPaymentType.Amortization }
+fun List<BondPayment>?.firstCoupon(): BondPayment? = this?.firstOrNull { it.type == BondPaymentType.Coupon }
+
+fun List<BondPayment>?.lastAmortization(): BondPayment? = this?.lastOrNull { it.type == BondPaymentType.Amortization }
 
 @Serializable
 data class BondPayment(
@@ -61,7 +64,7 @@ data class BondPayment(
 
             val columns = block["columns"]
                 ?.jsonArray
-                ?.map { it.jsonPrimitive.content }
+                ?.map { it.jsonPrimitive.contentOrNull }
                 ?: return emptyList()
 
             val dateIndex = columns.indexOf(dateColumn)
@@ -80,7 +83,7 @@ data class BondPayment(
                     val date = row
                         .getOrNull(dateIndex)
                         ?.jsonPrimitive
-                        ?.content
+                        ?.contentOrNull
                         ?.takeIf { it.isNotBlank() }
                         ?.let {
                             runCatching { LocalDate.parse(it) }.getOrNull()
@@ -90,14 +93,14 @@ data class BondPayment(
                     val value = row
                         .getOrNull(valueIndex)
                         ?.jsonPrimitive
-                        ?.content
+                        ?.contentOrNull
                         ?.toDoubleOrNull()
                         ?: return@mapNotNull null
 
                     val valueprc = row
                         .getOrNull(valueprcIndex)
                         ?.jsonPrimitive
-                        ?.content
+                        ?.contentOrNull
                         ?.toDoubleOrNull()
                         ?: return@mapNotNull null
 
@@ -111,6 +114,4 @@ data class BondPayment(
                 ?: emptyList()
         }
     }
-
-
 }

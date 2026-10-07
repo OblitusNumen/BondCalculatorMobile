@@ -101,7 +101,7 @@ fun BondizationDialog(
 }
 
 @Composable
-fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String = "RUR") {
+fun EfficiencyTable(calculateResult: LocalBond.CalculateResult?, currency: String = "RUR") {
     LazyRow(state = rememberLazyListState()) {
         item {
             Column(Modifier.width(IntrinsicSize.Max)) {
@@ -161,35 +161,35 @@ fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String
                     fontFamily = Monospace
                 )
                 Text(
-                    formatDoublePercentage(calculateResult.effectiveProfitRatePercentage),
+                    calculateResult?.effectiveProfitRatePercentage?.let { formatDoublePercentage(it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.effectiveProfit),
+                    calculateResult?.effectiveProfit?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.reinvestProfit),
+                    calculateResult?.reinvestProfit?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatDoublePercentage(calculateResult.effectiveProfitReinvestPercentage),
+                    calculateResult?.effectiveProfitReinvestPercentage?.let { formatDoublePercentage(it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.effectiveReturn),
+                    calculateResult?.effectiveReturn?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
@@ -208,14 +208,14 @@ fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String
                     fontFamily = Monospace
                 )
                 Text(
-                    formatDoublePercentage(calculateResult.cleanProfitRatePercentage),
+                    calculateResult?.cleanProfitRatePercentage?.let { formatDoublePercentage(it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.cleanProfit),
+                    calculateResult?.cleanProfit?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
@@ -236,7 +236,7 @@ fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.cleanReturn),
+                    calculateResult?.cleanReturn?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
@@ -255,14 +255,14 @@ fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatDoublePercentage(calculateResult.totalProfitRatePercentage),
+                    calculateResult?.totalProfitRatePercentage?.let { formatDoublePercentage(it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.totalProfit),
+                    calculateResult?.totalProfit?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
@@ -283,7 +283,7 @@ fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.totalReturn),
+                    calculateResult?.totalReturn?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
@@ -302,35 +302,36 @@ fun EfficiencyTable(calculateResult: LocalBond.CalculateResult, currency: String
                     fontFamily = Monospace
                 )
                 Text(
-                    formatDoublePercentage(calculateResult.depositEffectiveProfitRatePercentage),
+                    calculateResult?.depositEffectiveProfitRatePercentage?.let { formatDoublePercentage(it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.depositEffectiveProfit),
+                    calculateResult?.depositEffectiveProfit?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.depositReinvestProfit),
+                    calculateResult?.depositReinvestProfit?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatDoublePercentage(calculateResult.depositEffectiveProfitReinvestPercentage),
+                    calculateResult?.depositEffectiveProfitReinvestPercentage?.let { formatDoublePercentage(it) }
+                        ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,
                     fontFamily = Monospace,
                 )
                 Text(
-                    formatCurrencyValue(currency, calculateResult.depositEffectiveReturn),
+                    calculateResult?.depositEffectiveReturn?.let { formatCurrencyValue(currency, it) } ?: "?",
                     Modifier.padding(horizontal = 4.dp, vertical = 2.dp).fillMaxWidth(),
                     fontSize = 10.sp,
                     textAlign = TextAlign.End,

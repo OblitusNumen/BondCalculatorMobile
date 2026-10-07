@@ -148,7 +148,6 @@ data class LocalBond(
 
         val nominalCouponRate = getNominalCouponRate(settings)
         repeat(couponCount) { idx ->
-            result.add(BondPayment(BondPaymentType.Amortization, bondMaturityEpochDay, bondValue, 100.0))
             result.add(
                 BondPayment(
                     BondPaymentType.Coupon,
@@ -158,6 +157,7 @@ data class LocalBond(
                 )
             )
         }
+        result.add(BondPayment(BondPaymentType.Amortization, bondMaturityEpochDay, bondValue, 100.0))
 
         return result
     }

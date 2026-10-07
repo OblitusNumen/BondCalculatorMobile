@@ -2,6 +2,7 @@ package oblitusnumen.bondcalculator.data.schema
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -66,7 +67,7 @@ data class Candle(
 
             val result: MutableList<Candle> = mutableListOf()
             repeat(dataArray.size) { index ->
-                val values = dataArray[index].jsonArray.map { it.jsonPrimitive.content }
+                val values = dataArray[index].jsonArray.map { it.jsonPrimitive.contentOrNull }
                 result.add(fromMap(colList.zip(values).toMap()))
             }
             return result

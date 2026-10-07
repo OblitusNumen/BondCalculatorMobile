@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * Full details of a single bond as returned by the MOEX ISS API.
  * Fields are named exactly as in the `columns` array of the `/securities` endpoint.
  *
- * @property secid Unique security identifier (e.g., "SU26207RMFS9").
+ * @property secId Unique security identifier (e.g., "SU26207RMFS9").
  * @property boardid Trading board code (e.g., "SPOB" – primary bond board).
  * @property shortname Short abbreviated name of the bond.
  * @property couponValue Absolute coupon value in the bond's currency (per bond,
@@ -40,7 +40,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class Bond(
-    val secid: String,                      // SECID
+    val secId: String,                      // SECID
     val boardid: String?,                   // BOARDID
     val shortname: String?,                 // SHORTNAME
     val couponValue: Double?,               // COUPONVALUE
@@ -72,7 +72,7 @@ data class Bond(
     companion object {
         fun fromMap(map: Map<String, String?>): Bond {
             return Bond(
-                secid = map["SECID"] ?: "",
+                secId = map["SECID"] ?: "",
                 boardid = map["BOARDID"],
                 shortname = map["SHORTNAME"],
                 couponValue = map["COUPONVALUE"]?.toDoubleOrNull(),
@@ -109,7 +109,7 @@ data class Bond(
          */
         fun fromRow(row: List<String?>): Bond {
             return Bond(
-                secid = row.getOrNull(0) ?: "",
+                secId = row.getOrNull(0) ?: "",
                 boardid = row.getOrNull(1),
                 shortname = row.getOrNull(2),
                 couponValue = row.getOrNull(5)?.toDoubleOrNull(),

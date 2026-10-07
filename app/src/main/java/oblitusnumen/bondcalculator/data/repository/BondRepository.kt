@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -114,7 +115,7 @@ class BondRepository(
                     } else {
                         Log.w("MOEX API", "Fetched multiple bonds!!!")
                         bondDetails.forEach {
-                            Log.w("MOEX API", "\t${it.bond.secid}")
+                            Log.w("MOEX API", "\t${it.bond.secId}")
                         }
 
                         val coherent = bondDetails.firstOrNull { it.bond.faceUnit == it.bond.currencyId }
@@ -187,7 +188,7 @@ class BondRepository(
                 } else {
                     Log.w("MOEX API", "Fetched multiple bonds!!!")
                     bondDetails.forEach {
-                        Log.w("MOEX API", "\t${it.bond.secid}")
+                        Log.w("MOEX API", "\t${it.bond.secId}")
                     }
 
                     val coherent = bondDetails.firstOrNull { it.bond.faceUnit == it.bond.currencyId }
@@ -239,7 +240,7 @@ class BondRepository(
                     emptyList()
                 } else {
                     val columns = securitiesObj["columns"]?.jsonArray
-                        ?.map { it.jsonPrimitive.content }
+                        ?.map { it.jsonPrimitive.contentOrNull }
                     if (columns == null) {
                         emptyList()
                     } else {
@@ -248,7 +249,7 @@ class BondRepository(
                             emptyList()
                         } else {
                             dataArray.map { element ->
-                                val values = element.jsonArray.map { it.jsonPrimitive.content }
+                                val values = element.jsonArray.map { it.jsonPrimitive.contentOrNull }
                                 val map = columns.zip(values).toMap()
                                 SecuritySummary(
                                     secid = map["secid"] ?: "",
