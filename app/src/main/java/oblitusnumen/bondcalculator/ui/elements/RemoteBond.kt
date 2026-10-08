@@ -11,10 +11,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarOutline
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -34,9 +31,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import oblitusnumen.bondcalculator.data.schema.BondDetails
-import oblitusnumen.bondcalculator.data.schema.BondPaymentType
-import oblitusnumen.bondcalculator.data.schema.lastAmortization
-import oblitusnumen.bondcalculator.data.schema.lastCoupon
+import oblitusnumen.bondcalculator.data.schema.firstCoupon
+import oblitusnumen.bondcalculator.data.schema.lastNotNullAmortization
 import oblitusnumen.bondcalculator.ui.*
 import java.time.LocalDateTime
 
@@ -91,6 +87,10 @@ fun Bond(
                     }
                 }
             }
+
+        if (calculateResult?.unreliable ?: false) {
+            UnreliableCalculationWarning()
+        }
 
         //name
         Row(
@@ -288,11 +288,11 @@ fun AllParametersDialog(
                     )
                     ParameterRow(
                         "Initial value",
-                        calculateResult?.bondization?.lastAmortization()
+                        calculateResult?.bondization?.lastNotNullAmortization()
                             ?.let {
                                 formatCurrencyValue(
                                     currency,
-                                    it.valuePercent / 100f * it.value / calculateResult.numberOfLots
+                                    it.valuePercent!! / 100f * it.value!! / calculateResult.numberOfLots
                                 )
                             }
                             ?: "?",
@@ -310,12 +310,7 @@ fun AllParametersDialog(
                     )
                     ParameterRow(
                         "Coupon",
-                        calculateResult?.numberOfLots?.let {
-                            formatCurrencyValue(
-                                currency,
-                                (calculateResult.bondization.lastCoupon()?.value ?: 0.0) / it
-                            )
-                        } ?: "?",
+                        bond.bond.couponValue?.let { formatCurrencyValue(currency, it) } ?: "?",
                         Modifier.padding(horizontal = padding)
                     )
                     ParameterRow(
@@ -329,7 +324,7 @@ fun AllParametersDialog(
                         Modifier.padding(horizontal = padding)
                     )
                     ParameterRow(
-                        "Return date",
+                        "Maturity date",
                         bond.maturityDate?.toString() ?: "-",
                         Modifier.padding(horizontal = padding)
                     )
@@ -363,11 +358,17 @@ fun AllParametersDialog(
                 item {
                     Spacer(Modifier.height(12.dp))
                     Text("Efficiency")
+
                     ParameterRow(
                         "Price rate",
                         calculateResult?.priceRatePercentage?.let { formatDoublePercentage(it) } ?: "?",
                         Modifier.padding(horizontal = padding)
                     )
+
+                    if (calculateResult?.unreliable ?: false) {
+                        UnreliableCalculationWarning()
+                    }
+
                     EfficiencyTable(calculateResult?.toLocalCalculateResult(), currency)
                 }
                 item {
@@ -404,7 +405,7 @@ fun AllParametersDialog(
                     )
                     ParameterRow(
                         "Coupon amount",
-                        calculateResult?.bondization.lastCoupon()?.value?.let { formatCurrencyValue(currency, it) }
+                        calculateResult?.let { formatCurrencyValue(currency, it.totalCouponValue / it.couponCount) }
                             ?: "-",
                         Modifier.padding(horizontal = padding)
                     )
@@ -420,7 +421,7 @@ fun AllParametersDialog(
                     )
                     ParameterRow(
                         "Next coupon",
-                        calculateResult?.bondization?.firstOrNull { it.type == BondPaymentType.Coupon }?.date?.toString()
+                        calculateResult?.bondization.firstCoupon()?.date?.toString()
                             ?: "-",
                         Modifier.padding(horizontal = padding)
                     )
@@ -451,5 +452,21 @@ fun AllParametersDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun UnreliableCalculationWarning() {
+    Row(verticalAlignment = CenterVertically) {
+        Icon(
+            Icons.Rounded.Warning,
+            contentDescription = null,
+            tint = Color.Yellow,
+            modifier = Modifier.padding(4.dp).size(24.dp)
+        )
+        Text(
+            "Calculation might be unreliable",
+            fontSize = 12.sp,
+        )
     }
 }

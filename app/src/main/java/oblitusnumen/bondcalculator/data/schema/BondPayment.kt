@@ -1,33 +1,44 @@
 package oblitusnumen.bondcalculator.data.schema
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import java.time.LocalDate
 
-fun List<BondPayment>?.lastCoupon(): BondPayment? = this?.lastOrNull { it.type == BondPaymentType.Coupon }
+fun List<BondPayment>?.lastCoupon(): BondPayment? = this?.lastOrNull { it.isCoupon }
 
-fun List<BondPayment>?.firstCoupon(): BondPayment? = this?.firstOrNull { it.type == BondPaymentType.Coupon }
+fun List<BondPayment>?.lastNotNullCoupon(): BondPayment? = this?.lastOrNull { it.isCoupon && it.hasValue }
 
-fun List<BondPayment>?.lastAmortization(): BondPayment? = this?.lastOrNull { it.type == BondPaymentType.Amortization }
+fun List<BondPayment>?.firstCoupon(): BondPayment? = this?.firstOrNull { it.isCoupon }
+
+fun List<BondPayment>?.lastNotNullAmortization(): BondPayment? = this?.lastOrNull { it.isAmortization && it.hasValue }
+
+fun List<BondPayment>?.lastAmortization(): BondPayment? = this?.lastOrNull { it.isAmortization }
 
 @Serializable
 data class BondPayment(
     val type: BondPaymentType,
     val epochDay: Long,
-    val value: Double,
-    val valuePercent: Double,
+    val value: Double?,
+    val valuePercent: Double?,
 ) {
-    operator fun times(ratio: Double): BondPayment = copy(value = value * ratio)
+    operator fun times(multiplier: Double): BondPayment = copy(value = value?.times(multiplier))
 
     val date: LocalDate
         get() = LocalDate.ofEpochDay(epochDay)
-
-    val cashFlow: CashFlow
-        get() = CashFlow(value, epochDay)
+    val valueNotNull: Double
+        get() = value ?: 0.0
+    val cashFlow: CashFlow?
+        get() = value?.let { CashFlow(it, epochDay) }
+    val cashFlowNotNull: CashFlow
+        get() = CashFlow(valueNotNull, epochDay)
+    val hasValue: Boolean
+        get() = value != null
+    val hasNullValue: Boolean
+        get() = value == null
+    val isAmortization: Boolean
+        get() = type == BondPaymentType.Amortization
+    val isCoupon: Boolean
+        get() = type == BondPaymentType.Coupon
 
     companion object {
 
@@ -95,14 +106,12 @@ data class BondPayment(
                         ?.jsonPrimitive
                         ?.contentOrNull
                         ?.toDoubleOrNull()
-                        ?: return@mapNotNull null
 
                     val valueprc = row
                         .getOrNull(valueprcIndex)
                         ?.jsonPrimitive
                         ?.contentOrNull
                         ?.toDoubleOrNull()
-                        ?: return@mapNotNull null
 
                     BondPayment(
                         type = type,

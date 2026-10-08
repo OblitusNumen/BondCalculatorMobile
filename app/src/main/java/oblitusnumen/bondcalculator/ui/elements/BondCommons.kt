@@ -67,7 +67,7 @@ fun BondizationDialog(
                                 Modifier).fillMaxWidth().padding(4.dp).padding(end = 12.dp)
                         ) {
                             Text(
-                                if (bondization.type == BondPaymentType.Amortization) "Amortization" else "Coupon",
+                                if (bondization.isAmortization) "Amortization" else "Coupon",
                                 Modifier.padding(2.dp).weight(1f),
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.End
@@ -79,13 +79,13 @@ fun BondizationDialog(
                                 textAlign = TextAlign.End
                             )
                             Text(
-                                formatCurrencyValue(currency, bondization.value),
+                                bondization.value?.let { formatCurrencyValue(currency, it) } ?: "-",
                                 Modifier.padding(2.dp).weight(1f),
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.End
                             )
                             Text(
-                                formatDoublePercentage(bondization.valuePercent, 2),
+                                bondization.valuePercent?.let { formatDoublePercentage(it, 2) } ?: "-",
                                 Modifier.padding(2.dp).weight(1f),
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.End

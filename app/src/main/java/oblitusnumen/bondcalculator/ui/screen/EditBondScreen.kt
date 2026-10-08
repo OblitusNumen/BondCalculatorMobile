@@ -42,7 +42,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
     }
     var nameText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.name).cursorToEnd()) }
     var bondValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.bondValue.toString()).cursorToEnd()) }
-    var bondReturnDateText: LocalDate by remember { mutableStateOf(bond.maturityDate) }
+    var bondMaturityDateText: LocalDate by remember { mutableStateOf(bond.maturityDate) }
     var couponPeriodDaysText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.couponPeriodDays.toString()).cursorToEnd()) }
     var couponValueText: TextFieldValue by remember { mutableStateOf(TextFieldValue(bond.couponValue.toString()).cursorToEnd()) }
     var bondPriceText: TextFieldValue by remember {
@@ -59,12 +59,12 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
     val bondPriceFocusRequester = remember { FocusRequester() }
     val bondValueFocusRequester = remember { FocusRequester() }
     val couponPeriodDaysFocusRequester = remember { FocusRequester() }
-    val selectBondReturnDate = {
+    val selectBondMaturityDate = {
         datePicker.datePick({ couponPeriodDaysFocusRequester.requestFocus() }, {
             bond = bond.withBondMaturityDate(it)
-            bondReturnDateText = it
+            bondMaturityDateText = it
             couponPeriodDaysFocusRequester.requestFocus()
-        }, bondReturnDateText)
+        }, bondMaturityDateText)
     }
     val couponValueFocusRequester = remember { FocusRequester() }
     val accruedOffsetFocusRequester = remember { FocusRequester() }
@@ -118,7 +118,7 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
                 },
                 keyboardType = KeyboardType.Decimal,
                 focusRequester = bondValueFocusRequester,
-                onDone = { selectBondReturnDate() }
+                onDone = { selectBondMaturityDate() }
             ) {
                 Text("₽")
             }
@@ -129,10 +129,10 @@ fun EditBondScreen(backPress: () -> Unit, bondId: Int? = null) {
                     verticalAlignment = CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Return date: ", Modifier.padding(start = 8.dp), fontSize = 24.sp)
+                    Text("Maturity date: ", Modifier.padding(start = 8.dp), fontSize = 24.sp)
 
-                    TextButton(onClick = selectBondReturnDate, Modifier.padding(horizontal = 8.dp)) {
-                        Text(bondReturnDateText.toString(), fontSize = 24.sp)
+                    TextButton(onClick = selectBondMaturityDate, Modifier.padding(horizontal = 8.dp)) {
+                        Text(bondMaturityDateText.toString(), fontSize = 24.sp)
                     }
                 }
             }

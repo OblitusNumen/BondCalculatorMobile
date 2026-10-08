@@ -1,10 +1,6 @@
 package oblitusnumen.bondcalculator.data.schema
 
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import oblitusnumen.bondcalculator.impl.calculateReturn
 import oblitusnumen.bondcalculator.impl.calculateYearlyPercentage
 import oblitusnumen.bondcalculator.impl.xirr
@@ -40,12 +36,12 @@ data class BondDetails(
         bond.couponPeriod!!
     )
 
-    fun getAccruedEsteem(investmentPeriod: Int, accruedOffset: Int): Double {
+    fun getAccruedEsteem(investmentPeriod: Int, accruedOffset: Int, couponValue: Double): Double {
         val couponPeriodDays = bond.couponPeriod ?: 0
         return if (couponPeriodDays == 0)
             0.0
         else
-            bond.couponValue!! * (couponPeriodDays - ((((investmentPeriod - accruedOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
+            couponValue * (couponPeriodDays - ((((investmentPeriod - accruedOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
     }
 
     val maturityDate: LocalDate?
@@ -64,6 +60,9 @@ data class BondDetails(
     val bondPrice: Double
         get() = bondPricePrcnt * bond.faceValue!! / 100
 
+    val tradeSessionEpochDay: Long
+        get() = LocalDate.parse(dataVersion.tradeSessionDate).toEpochDay()
+
     fun getBondPrice(faceValue: Double): Double = bondPricePrcnt * faceValue / 100
 
     fun getInvestmentPeriod(nowEpochDay: Long): Int =
@@ -71,6 +70,25 @@ data class BondDetails(
 
     fun getBondCost(faceValue: Double, buyCommission: Double, accrued: Double): Double =
         getBondPrice(faceValue) * (1 + buyCommission) + accrued
+
+    fun getFaceValue(
+        investmentEpochDay: Long,
+        fullBondization: List<BondPayment>,
+        defaultAmortizationValue: Double
+    ): Double {
+        var faceValue = bond.faceValue!!
+        val diff = (investmentEpochDay - tradeSessionEpochDay).toInt()
+        if (diff != 0) {
+            fullBondization.filter { it.isAmortization }.forEach {
+                val amortizationValue = it.value ?: defaultAmortizationValue
+                if (diff > 0 && tradeSessionEpochDay < it.epochDay && it.epochDay <= investmentEpochDay)
+                    faceValue -= amortizationValue
+                else if (diff > 0 && investmentEpochDay < it.epochDay && it.epochDay <= tradeSessionEpochDay)
+                    faceValue += amortizationValue
+            }
+        }
+        return faceValue
+    }
 
     fun calculateProfit(
         fullBondization: List<BondPayment>,
@@ -80,61 +98,233 @@ data class BondDetails(
         investmentDate: LocalDate,
         numberOfLots: Int,
     ): CalculateResult? {
-        val buyCommission = if (hasCommission) settings.commissionRate else 0.0
-        val tax = if (isTaxed) settings.taxPercentage * .01 else 0.0
-        var faceValue = bond.faceValue!!
-        val tradeSessionEpochDay = LocalDate.parse(dataVersion.tradeSessionDate).toEpochDay()
-        val investmentEpochDay = investmentDate.toEpochDay()
-        val diff = (investmentEpochDay - tradeSessionEpochDay).toInt()
-        if (diff != 0) {
-            fullBondization.filter { it.type == BondPaymentType.Amortization }.forEach {
-                if (diff > 0 && tradeSessionEpochDay < it.epochDay && it.epochDay <= investmentEpochDay)
-                    faceValue -= it.value
-                else if (diff > 0 && investmentEpochDay < it.epochDay && it.epochDay <= tradeSessionEpochDay)
-                    faceValue += it.value
+        try {
+            val buyCommission = if (hasCommission) settings.commissionRate else 0.0
+            val tax = if (isTaxed) settings.taxPercentage * .01 else 0.0
+            val investmentEpochDay = investmentDate.toEpochDay()
+            val lastNonNullAmortization = fullBondization.lastNotNullAmortization()
+            // FIXME: amortizations edgecase
+            val faceValue = getFaceValue(investmentEpochDay, fullBondization, lastNonNullAmortization?.value ?: 0.0)
+            val bondPrice = getBondPrice(faceValue)
+            val bondization = fullBondization.filter { it.epochDay > investmentEpochDay }
+            // the coupon which should indicate future coupon values
+            val lastNonNullCoupon = run {
+                val lastNotNullCoupon = fullBondization.lastNotNullCoupon()
+                if (bond.couponValue != null && bond.couponValue != 0.0)
+                    (lastNotNullCoupon ?: bondization.lastCoupon())?.copy(
+                        value = bond.couponValue,
+                        valuePercent = bond.couponPercent
+                    )
+                else
+                    lastNotNullCoupon
             }
-        }
-        val bondPrice = getBondPrice(faceValue)
-        val bondization = fullBondization.filter { it.epochDay > investmentEpochDay }
-        if (bondization.isEmpty())
-            return null
-        val coupons = bondization.filter { it.type == BondPaymentType.Coupon }
-        val totalCouponValue = coupons.sumOf { it.value }
-        val couponRate = coupons.lastOrNull()?.valuePercent ?: 0.0
+            var calculationIsUnreliable = false
+            var cumFaceValue = faceValue
+            val lastCouponFaceValue = lastNonNullCoupon?.epochDay?.let {
+                getFaceValue(
+                    it,
+                    fullBondization,
+                    lastNonNullAmortization?.value ?: 0.0
+                )
+            } ?: faceValue
+            val bondizationNonNull = bondization.map { payment ->
+                if (payment.hasValue)
+                    payment
+                else {
+                    calculationIsUnreliable = true
+                    if (payment.isAmortization) {
+                        cumFaceValue -= lastNonNullAmortization?.value ?: 0.0
+                        payment.copy(
+                            value = lastNonNullAmortization?.value,
+                            valuePercent = lastNonNullAmortization?.valuePercent
+                        )
+                    } else {// FIXME: use face value from coupon's details
+                        val value = lastNonNullCoupon?.valuePercent?.let {
+                            cumFaceValue * it * .01 * (bond.couponPeriod ?: 0.0).toDouble() / 365.0
+                        } ?: lastNonNullCoupon?.value?.times(cumFaceValue / lastCouponFaceValue)
+                        payment.copy(value = value, valuePercent = lastNonNullCoupon?.valuePercent)
+                    }
+                }
+            }
+            if (lastNonNullCoupon == null && lastNonNullAmortization == null)
+            // FIXME: mb return empty result
+                return null
+            val coupons = bondizationNonNull.filter { it.isCoupon }
+            val totalCouponValue = coupons.sumOf { it.valueNotNull }
+            val couponRate = coupons.lastOrNull()?.valuePercent ?: 0.0
 
-        if (maturityDate == null) {
-            val couponEpochDay = bondization.lastCoupon()?.epochDay ?: investmentEpochDay
-            val investmentPeriod: Int = (couponEpochDay - investmentEpochDay).toInt()
-            getAccruedEsteem(investmentPeriod, getAccruedOffset())
-            val accruedOffset = LocalBond.getAccruedOffset(
-                LocalDate.ofEpochDay(tradeSessionEpochDay),
-                bond.accruedInt ?: 0.0,
-                bond.couponValue!!,
-                LocalDate.ofEpochDay(couponEpochDay),
-                bond.couponPeriod!!
-            )
-            val couponPeriodDays = bond.couponPeriod
-            val accrued = if (couponPeriodDays == 0)
-                0.0
-            else
-                bond.couponValue * (couponPeriodDays - ((((investmentPeriod - accruedOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
+            if (maturityDate == null) {
+                val lastKnownCouponEpochDay = lastNonNullCoupon?.epochDay ?: investmentEpochDay
+                val investmentPeriod: Int = (lastKnownCouponEpochDay - investmentEpochDay).toInt()
+                getAccruedEsteem(investmentPeriod, getAccruedOffset(), lastNonNullCoupon?.value ?: 0.0)
+                val accruedOffset = LocalBond.getAccruedOffset(
+                    LocalDate.ofEpochDay(tradeSessionEpochDay),
+                    bond.accruedInt ?: 0.0,
+                    bond.couponValue!!,
+                    LocalDate.ofEpochDay(lastKnownCouponEpochDay),
+                    bond.couponPeriod!!
+                )
+                val couponPeriodDays = bond.couponPeriod
+                val accrued = if (couponPeriodDays == 0)
+                    0.0
+                else
+                    bond.couponValue * (couponPeriodDays - ((((investmentPeriod - accruedOffset - 2) % couponPeriodDays) + couponPeriodDays) % couponPeriodDays) - 1) / couponPeriodDays.toDouble()
+                val bondCost = getBondCost(faceValue, buyCommission, accrued)
+                val commission = bondPrice * buyCommission
+
+                // counting all the coupons
+                val totalProfitRatePercentage = couponRate / bondCost * faceValue
+                val cleanProfitRatePercentage = couponRate * (1 - tax) / bondCost * faceValue
+                val sellPrice = getBondPrice(faceValue) * (1 - buyCommission)/* + accrued*/
+                val effectiveSellPrice = sellPrice - (sellPrice - bondCost) * tax
+                val couponValue = lastNonNullCoupon?.value ?: 0.0
+                val cleanCoupon = couponValue * (1 - tax)
+                val cleanReturn: Double =
+                    bondization.filter { it.isCoupon && it.hasValue && it.epochDay < lastKnownCouponEpochDay }
+                        .sumOf { it.valueNotNull } + effectiveSellPrice
+                val effectiveProfitRatePercentage: Double = if (investmentPeriod == 0)
+                    0.0
+                else
+                    xirr(mutableListOf<CashFlow>().apply xirr@{
+                        add(CashFlow(-bondCost, investmentEpochDay))
+                        addAll(bondization.filter { it.isCoupon && it.hasValue && it.epochDay <= lastKnownCouponEpochDay }
+                            .map {
+                                it.cashFlowNotNull
+                            })
+                        add(CashFlow(effectiveSellPrice, lastKnownCouponEpochDay))
+
+                        println("Calc no matDate:${bond.secId}:${bond.shortname}\n")
+
+                        println(StringBuilder().apply {
+                            this@xirr.forEach {
+                                append("${it.amount}:${it.date}")
+                                append("\n")
+                            }
+                            append("bondization\n")
+                            bondizationNonNull.forEach {
+                                append("${it.type}:${it.value}")
+                                append("\n")
+                            }
+                        }.toString())
+                    }) * 100
+
+                return CalculateResult(
+                    true,
+                    tax * 100,
+                    buyCommission * 100,
+                    settings.bondReinvestThruDepositPercentage,
+                    1,
+                    investmentDate,
+                    investmentPeriod,
+                    bondCost,
+                    bondPrice,
+                    accrued,
+                    commission,
+                    0.0,
+                    0.0,
+                    couponValue,
+                    totalProfitRatePercentage,
+                    cleanReturn,
+                    cleanCoupon,
+                    cleanProfitRatePercentage,
+                    cleanReturn,
+                    cleanReturn - bondCost,
+                    effectiveProfitRatePercentage,
+                    Double.NaN,
+                    Double.NaN,
+                    Double.NaN,
+                    Double.NaN,
+                    Double.NaN,
+                    couponRate,
+                    bondization,
+                    coupons.size,
+                    totalCouponValue,
+                    faceValue
+                ).withLots(numberOfLots)
+            }
+
+            val investmentPeriod: Int = getInvestmentPeriod(investmentEpochDay)
+            val accrued = getAccruedEsteem(investmentPeriod, getAccruedOffset(), lastNonNullCoupon?.value ?: 0.0)
             val bondCost = getBondCost(faceValue, buyCommission, accrued)
+            val totalReturn = bondizationNonNull.sumOf { it.valueNotNull }
+            val totalProfit = totalReturn - bondCost
+            val totalProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, totalReturn)
+            val cleanProfit = totalProfit * (1 - tax)
+            val cleanReturn = bondCost + cleanProfit
+            val cleanProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, cleanReturn)
             val commission = bondPrice * buyCommission
 
-            val totalProfitRatePercentage = couponRate / bondCost * faceValue
-            val cleanProfitRatePercentage = couponRate * (1 - tax) / bondCost * faceValue
-            val sellPrice = getBondPrice(faceValue) * (1 - buyCommission)/* + accrued*/
-            val couponValue = bondization.lastCoupon()?.value ?: 0.0
-            val cleanCoupon = couponValue * (1 - tax)
-            val effectiveReturn: Double = cleanCoupon + sellPrice - (sellPrice - bondCost) * tax
-            val effectiveProfitRatePercentage: Double = calculateYearlyPercentage(
-                settings,
-                investmentPeriod,
-                bondCost,
-                effectiveReturn
-            )
+            println("Calc:${bond.secId}:${bond.shortname}\n")
+
+            val priceRatePercentage = xirr(mutableListOf<CashFlow>().apply xirr@{
+                add(CashFlow(-bondCost, investmentEpochDay))
+                addAll(bondizationNonNull.filter { it.isAmortization }.map { it.cashFlowNotNull })
+                println(StringBuilder().apply {
+                    this@xirr.forEach {
+                        append("${it.amount}:${it.date}")
+                        append("\n")
+                    }
+                    append("bondization\n")
+                    bondizationNonNull.forEach {
+                        append("${it.type}:${it.value}")
+                        append("\n")
+                    }
+                }.toString())
+            }) * 100
+
+            var effectiveBondProfit = 0.0
+            val effectiveBondProfitPercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
+                add(CashFlow(-bondCost, investmentEpochDay))
+                addAll(bondizationNonNull.map {
+                    CashFlow(
+                        if (it.isCoupon)
+                            it.valueNotNull * (1 - tax)
+                        else
+                            it.valueNotNull * (1 - (1 - bondCost / faceValue) * tax),
+                        it.epochDay
+                    )
+                })
+                println(StringBuilder().apply {
+                    append("effectiveBondProfitPercentage\n")
+                    this@xirr.forEach {
+                        append("${it.amount}:${it.date}")
+                        append("\n")
+                    }
+                }.toString())
+                effectiveBondProfit = sumOf { it.amount }
+            }) * 100
+
+            var depositEffectiveProfit = 0.0
+            val depositEffectiveProfitRatePercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
+                add(CashFlow(-bondCost, investmentEpochDay))
+                addAll(bondizationNonNull.map {
+                    CashFlow(
+                        calculateReturn(
+                            settings,
+                            ((maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()) - it.epochDay).toInt(),
+                            if (it.isCoupon)
+                                it.valueNotNull * (1 - tax)
+                            else
+                                it.valueNotNull * (1 - (1 - bondCost / faceValue) * tax),
+                            settings.bondReinvestThruDepositPercentage / 100
+                        ), maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()
+                    )
+                })
+                println(StringBuilder().apply {
+                    append("depositEffectiveProfitRatePercentage\n")
+                    this@xirr.forEach {
+                        append("${it.amount}:${it.date}")
+                        append("\n")
+                    }
+                }.toString())
+                depositEffectiveProfit = sumOf { it.amount }
+            }) * 100
+            val depositReinvestProfit: Double = depositEffectiveProfit - effectiveBondProfit
+            val depositEffectiveProfitReinvestPercentage: Double = depositReinvestProfit / depositEffectiveProfit * 100
+
 
             return CalculateResult(
+                calculationIsUnreliable,
                 tax * 100,
                 buyCommission * 100,
                 settings.bondReinvestThruDepositPercentage,
@@ -145,141 +335,31 @@ data class BondDetails(
                 bondPrice,
                 accrued,
                 commission,
-                0.0,
-                0.0,
-                couponValue,
+                priceRatePercentage,
+                totalReturn,
+                totalProfit,
                 totalProfitRatePercentage,
-                0.0,
-                cleanCoupon,
+                cleanReturn,
+                cleanProfit,
                 cleanProfitRatePercentage,
-                effectiveReturn,
-                effectiveReturn - bondCost,
-                effectiveProfitRatePercentage,
-                Double.NaN,
-                Double.NaN,
-                Double.NaN,
-                Double.NaN,
-                Double.NaN,
+                effectiveBondProfit + bondCost,
+                effectiveBondProfit,
+                effectiveBondProfitPercentage,
+                depositEffectiveProfit + bondCost,
+                depositReinvestProfit,
+                depositEffectiveProfit,
+                depositEffectiveProfitReinvestPercentage,
+                depositEffectiveProfitRatePercentage,
                 couponRate,
                 bondization,
                 coupons.size,
                 totalCouponValue,
                 faceValue
             ).withLots(numberOfLots)
+        } catch (e: Exception) {
+            Exception("couldn't calculate bond ${bond.secId}:${bond.secName}", e).printStackTrace()
+            return null
         }
-
-        val investmentPeriod: Int = getInvestmentPeriod(investmentEpochDay)
-        val accrued = getAccruedEsteem(investmentPeriod, getAccruedOffset())
-        val bondCost = getBondCost(faceValue, buyCommission, accrued)
-        val totalReturn = bondization.sumOf { it.value }
-        val totalProfit = totalReturn - bondCost
-        val totalProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, totalReturn)
-        val cleanProfit = totalProfit * (1 - tax)
-        val cleanReturn = bondCost + cleanProfit
-        val cleanProfitRatePercentage = calculateYearlyPercentage(settings, investmentPeriod, bondCost, cleanReturn)
-        val commission = bondPrice * buyCommission
-
-        println("Calc:${bond.secId}:${bond.shortname}\n")
-
-        val priceRatePercentage = xirr(mutableListOf<CashFlow>().apply xirr@{
-            add(CashFlow(-bondCost, investmentEpochDay))
-            addAll(bondization.filter { it.type == BondPaymentType.Amortization }.map { it.cashFlow })
-            println(StringBuilder().apply {
-                this@xirr.forEach {
-                    append("${it.amount}:${it.date}")
-                    append("\n")
-                }
-                append("bondization\n")
-                bondization.forEach {
-                    append("${it.type}:${it.value}")
-                    append("\n")
-                }
-            }.toString())
-        }) * 100
-
-        var effectiveBondProfit = 0.0
-        val effectiveBondProfitPercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
-            add(CashFlow(-bondCost, investmentEpochDay))
-            addAll(bondization.map {
-                CashFlow(
-                    if (it.type == BondPaymentType.Coupon)
-                        it.value * (1 - tax)
-                    else
-                        it.value * (1 - (1 - bondCost / faceValue) * tax),
-                    it.epochDay
-                )
-            })
-            println(StringBuilder().apply {
-                append("effectiveBondProfitPercentage\n")
-                this@xirr.forEach {
-                    append("${it.amount}:${it.date}")
-                    append("\n")
-                }
-            }.toString())
-            effectiveBondProfit = sumOf { it.amount }
-        }) * 100
-
-        var depositEffectiveProfit = 0.0
-        val depositEffectiveProfitRatePercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
-            add(CashFlow(-bondCost, investmentEpochDay))
-            addAll(bondization.map {
-                CashFlow(
-                    calculateReturn(
-                        settings,
-                        ((maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()) - it.epochDay).toInt(),
-                        if (it.type == BondPaymentType.Coupon)
-                            it.value * (1 - tax)
-                        else
-                            it.value * (1 - (1 - bondCost / faceValue) * tax),
-                        settings.bondReinvestThruDepositPercentage / 100
-                    ), maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()
-                )
-            })
-            println(StringBuilder().apply {
-                append("depositEffectiveProfitRatePercentage\n")
-                this@xirr.forEach {
-                    append("${it.amount}:${it.date}")
-                    append("\n")
-                }
-            }.toString())
-            depositEffectiveProfit = sumOf { it.amount }
-        }) * 100
-        val depositReinvestProfit: Double = depositEffectiveProfit - effectiveBondProfit
-        val depositEffectiveProfitReinvestPercentage: Double = depositReinvestProfit / depositEffectiveProfit * 100
-
-
-        return CalculateResult(
-            tax * 100,
-            buyCommission * 100,
-            settings.bondReinvestThruDepositPercentage,
-            1,
-            investmentDate,
-            investmentPeriod,
-            bondCost,
-            bondPrice,
-            accrued,
-            commission,
-            priceRatePercentage,
-            totalReturn,
-            totalProfit,
-            totalProfitRatePercentage,
-            cleanReturn,
-            cleanProfit,
-            cleanProfitRatePercentage,
-            effectiveBondProfit + bondCost,
-            effectiveBondProfit,
-            effectiveBondProfitPercentage,
-            depositEffectiveProfit + bondCost,
-            depositReinvestProfit,
-            depositEffectiveProfit,
-            depositEffectiveProfitReinvestPercentage,
-            depositEffectiveProfitRatePercentage,
-            couponRate,
-            bondization,
-            coupons.size,
-            totalCouponValue,
-            faceValue
-        ).withLots(numberOfLots)
     }
 
     companion object {
@@ -340,6 +420,7 @@ data class BondDetails(
     }
 
     data class CalculateResult(
+        val unreliable: Boolean,
         val tax: Double,
         val commissionPercentage: Double,
         val depositReinvestmentRatePercentage: Double,

@@ -28,10 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import oblitusnumen.bondcalculator.data.schema.BondPaymentType
 import oblitusnumen.bondcalculator.data.schema.FinanceParameters
 import oblitusnumen.bondcalculator.data.schema.LocalBond
-import oblitusnumen.bondcalculator.data.schema.lastCoupon
+import oblitusnumen.bondcalculator.data.schema.lastNotNullCoupon
 import oblitusnumen.bondcalculator.ui.*
 import java.time.LocalDate
 
@@ -337,7 +336,7 @@ fun AllParametersDialog(
                     // FIXME: add currency
                     ParameterRow(
                         "Coupon amount",
-                        calculateResult.bondization.lastCoupon()?.value?.let { formatRubbleValue(it) } ?: "-",
+                        calculateResult.bondization.lastNotNullCoupon()?.value?.let { formatRubbleValue(it) } ?: "-",
                         Modifier.padding(horizontal = padding)
                     )
                     ParameterRow(
@@ -357,7 +356,7 @@ fun AllParametersDialog(
                     )
                     ParameterRow(
                         "Next coupon",
-                        calculateResult.bondization.firstOrNull { it.type == BondPaymentType.Coupon }?.date?.toString()
+                        calculateResult.bondization.firstOrNull { it.isCoupon }?.date?.toString()
                             ?: "-",
                         Modifier.padding(horizontal = padding)
                     )
