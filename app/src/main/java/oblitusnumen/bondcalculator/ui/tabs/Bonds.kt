@@ -56,17 +56,25 @@ fun BondsTab(
     val coroutineScope = rememberCoroutineScope()
 
     val dataManager = LocalDataManager.current
-    val displayBond: @Composable (String, String?, BondDetails?, LocalDateTime?, (BondDetails) -> Unit) -> Unit =
-        { secId, shortName, bond, updateTime, onUpdateBond ->
+    val displayBond: @Composable (String, String?, BondDetails?, LocalDateTime?, (BondDetails) -> Unit, () -> Unit, () -> Unit) -> Unit =
+        { secId, shortName, bond, updateTime, onUpdateBond, unsubscribe, subscribeIfUnsubscribed ->
             var updater by remember { mutableStateOf(false) }
             if (bond == null) {
                 Column {
-                    Text(
-                        "Bond $shortName seems to be absent",
-                        Modifier.padding(16.dp).fillMaxWidth()
-                            .align(CenterHorizontally),
-                        textAlign = TextAlign.Center
-                    )
+                    if (updateTime == null) {
+                        Text(
+                            "Loading...",
+                            Modifier.height(250.dp).fillMaxWidth().align(CenterHorizontally),
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        Text(
+                            "Bond $shortName seems to be absent",
+                            Modifier.padding(16.dp).fillMaxWidth()
+                                .align(CenterHorizontally),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             } else {
                 var calculateResult: BondDetails.CalculateResult? by remember { mutableStateOf(null) }
@@ -82,7 +90,10 @@ fun BondsTab(
                     updater
                 ) {
                     calculationStatus = RemoteDataStatus.Loading
-                    val bondization = dataManager.bondizationRepository.getBondization(secId, rememberedMainScreenSettings.bondsInvestmentDate)
+                    val bondization = dataManager.bondizationRepository.getBondization(
+                        secId,
+                        rememberedMainScreenSettings.bondsInvestmentDate
+                    )
                     if (bondization == null || bondization.isEmpty()) {
                         println("Calculation $secId fail")
                         calculationStatus = RemoteDataStatus.Failed
@@ -128,9 +139,10 @@ fun BondsTab(
                     }
                     setBondFavourites(context, favouriteBonds)
                 }, { saveBondShown = true }, {
+                    subscribeIfUnsubscribed()
                     dataManager.bondRepository.refreshBond(bond.bond.secId)
                     updater = !updater
-                }, onUpdateBond)
+                }, onUpdateBond, unsubscribe)
             }
         }
 
@@ -227,31 +239,47 @@ fun BondsTab(
                                         var bond: BondDetails? by remember { mutableStateOf(null) }
                                         var updateTime: LocalDateTime? by remember { mutableStateOf(null) }
 
-                                        DisposableEffect(secId) {
-                                            val callback: (BondDetails?, LocalDateTime?) -> Unit =
+                                        val subscriptionCallback: (BondDetails?, LocalDateTime?) -> Unit =
+                                            remember(secId) {
                                                 { bondDetails, lastUpdate ->
                                                     bond = bondDetails
                                                     updateTime = lastUpdate
                                                 }
-                                            dataManager.bondRepository.getBondSubscribe(secId, callback)
-                                            println("Sub $secId")
-                                            onDispose {
-                                                dataManager.bondRepository.getBondUnsubscribe(secId, callback)
+                                            }
+                                        var subscribed by remember(secId) { mutableStateOf(false) }
+                                        val subscribe = {
+                                            if (!subscribed) {
+                                                dataManager.bondRepository.getBondSubscribe(
+                                                    secId,
+                                                    subscriptionCallback
+                                                )
+                                                println("Sub $secId")
+                                                subscribed = true
+                                            }
+                                        }
+                                        val unsubscribe = {
+                                            if (subscribed) {
+                                                dataManager.bondRepository.getBondUnsubscribe(
+                                                    secId,
+                                                    subscriptionCallback
+                                                )
                                                 println("Unsub $secId")
+                                                subscribed = false
                                             }
                                         }
 
-                                        if (updateTime == null) {
-                                            Text(
-                                                "Loading...",
-                                                Modifier.height(250.dp).fillMaxWidth().align(CenterHorizontally),
-                                                textAlign = TextAlign.Center
-                                            )
-                                        } else {
-                                            displayBond(secId, shortName, bond, updateTime) {
-                                                bond = it
+                                        DisposableEffect(secId) {
+                                            subscribe()
+
+                                            onDispose {
+                                                unsubscribe()
                                             }
                                         }
+
+                                        displayBond(secId, shortName, bond, updateTime, { bond = it }, {
+                                            unsubscribe()
+                                            updateTime = null
+                                        }, subscribe)
                                     }
                                 }
                             }
@@ -302,31 +330,47 @@ fun BondsTab(
                         var bond: BondDetails? by remember { mutableStateOf(null) }
                         var updateTime: LocalDateTime? by remember { mutableStateOf(null) }
 
-                        DisposableEffect(secId) {
-                            val callback: (BondDetails?, LocalDateTime?) -> Unit =
+                        val subscriptionCallback: (BondDetails?, LocalDateTime?) -> Unit =
+                            remember(secId) {
                                 { bondDetails, lastUpdate ->
                                     bond = bondDetails
                                     updateTime = lastUpdate
                                 }
-                            dataManager.bondRepository.getBondSubscribe(secId, callback)
-                            println("Sub $secId")
-                            onDispose {
-                                dataManager.bondRepository.getBondUnsubscribe(secId, callback)
+                            }
+                        var subscribed by remember(secId) { mutableStateOf(false) }
+                        val subscribe = {
+                            if (!subscribed) {
+                                dataManager.bondRepository.getBondSubscribe(
+                                    secId,
+                                    subscriptionCallback
+                                )
+                                println("Sub $secId")
+                                subscribed = true
+                            }
+                        }
+                        val unsubscribe = {
+                            if (subscribed) {
+                                dataManager.bondRepository.getBondUnsubscribe(
+                                    secId,
+                                    subscriptionCallback
+                                )
                                 println("Unsub $secId")
+                                subscribed = false
                             }
                         }
 
-                        if (updateTime == null) {
-                            Text(
-                                "Loading...",
-                                Modifier.height(250.dp).fillMaxWidth().align(CenterHorizontally),
-                                textAlign = TextAlign.Center
-                            )
-                        } else {
-                            displayBond(secId, secId, bond, updateTime) {
-                                bond = it
+                        DisposableEffect(secId) {
+                            subscribe()
+
+                            onDispose {
+                                unsubscribe()
                             }
                         }
+
+                        displayBond(secId, secId, bond, updateTime, { bond = it }, {
+                            unsubscribe()
+                            updateTime = null
+                        }, subscribe)
                     }
                 }
 

@@ -45,7 +45,8 @@ fun Bond(
     onIsFavouriteUpdate: ((Boolean) -> Unit)? = null,
     openEditBond: (Int?) -> Unit?,
     onUpdateRequested: () -> Unit,
-    onBondChange: (BondDetails) -> Unit
+    onBondChange: (BondDetails) -> Unit,
+    onChangedPrice: () -> Unit
 ) {
     val currency = bond.bond.faceUnit!!
     Column(
@@ -57,36 +58,37 @@ fun Bond(
         ).clip(RoundedCornerShape(8.dp)),
     ) {
         //update button
-        if (updateTime != null)
-            Box(Modifier.border(1.dp, Color.Transparent, RoundedCornerShape(8.dp)).padding(1.dp)) {
-                Row(
-                    Modifier.background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp)).padding(4.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+        Box(Modifier.border(1.dp, Color.Transparent, RoundedCornerShape(8.dp)).padding(1.dp)) {
+            Row(
+                Modifier.background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp)).padding(4.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
 //                    Text(updateTime.toLastUpdateString())
-                    var updatedString by remember(updateTime) {
-                        mutableStateOf(
-                            LocalDateTime.now().toLastUpdateString(updateTime)
-                        )
-                    }
-                    Text("Updated $updatedString")
-                    LaunchedEffect(updateTime) {
+                var updatedString by remember(updateTime) {
+                    mutableStateOf(updateTime?.let { LocalDateTime.now().toLastUpdateString(it) })
+                }
+
+                Text(updatedString?.let { "Updated $it" } ?: "Price changed manually")
+
+                LaunchedEffect(updateTime) {
+                    if (updateTime != null) {
                         while (true) {
                             delay(60 * 1000)
                             updatedString = LocalDateTime.now().toLastUpdateString(updateTime)
                         }
                     }
+                }
 
-                    IconButton(
-                        onUpdateRequested,
-                        Modifier.size(24.dp)
-                    ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null)
-                    }
+                IconButton(
+                    onUpdateRequested,
+                    Modifier.size(24.dp)
+                ) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = null)
                 }
             }
+        }
 
         if (calculateResult?.unreliable ?: false) {
             UnreliableCalculationWarning()
@@ -129,16 +131,13 @@ fun Bond(
             modifier = Modifier.fillMaxWidth()
         ) {
             //edit price
-            var bondPriceText: TextFieldValue by remember {
-                mutableStateOf(
-                    TextFieldValue(
-                        formatDouble(
-                            bond.bondPricePrcnt,
-                            4
-                        )
-                    ).cursorToEnd()
-                )
+            val getPriceText = { TextFieldValue(formatDouble(bond.bondPricePrcnt, 4)).cursorToEnd() }
+            var bondPriceText: TextFieldValue by remember { mutableStateOf(getPriceText()) }
+
+            LaunchedEffect(updateTime) {
+                if (updateTime != null) bondPriceText = getPriceText()
             }
+
             OutlinedTextField(
                 value = bondPriceText,
                 onValueChange = {
@@ -148,6 +147,7 @@ fun Bond(
                             onBondChange(bond.withPrice(fieldValue.text.toDouble()))
                         }
                         bondPriceText = fieldValue
+                        onChangedPrice()
                     } catch (_: Exception) {
                     }
                 },
