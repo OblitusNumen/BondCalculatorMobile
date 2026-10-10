@@ -130,11 +130,17 @@ fun XirrTab(paddingValues: PaddingValues) {
                 CashFlow(
                     cashFlow,
                     {
-                        cashFlows = cashFlows.toMutableList().apply { this[index] = it }.sortedBy { it.dateEpochDay }
+                        cashFlows = cashFlows.toMutableList().apply {
+                            if (0 <= index && index < cashFlows.size)
+                                this[index] = it
+                        }.sortedBy { it.dateEpochDay }
                         saveXirrCashFlows(context, cashFlows.map(CashFlowUiState::cashFlow))
                     },
                     {
-                        cashFlows = cashFlows.toMutableList().apply { removeAt(index) }.toList()
+                        cashFlows = cashFlows.toMutableList().apply {
+                            if (0 <= index && index < cashFlows.size)
+                                removeAt(index)
+                        }.toList()
                         saveXirrCashFlows(context, cashFlows.map(CashFlowUiState::cashFlow))
                     })
             }
