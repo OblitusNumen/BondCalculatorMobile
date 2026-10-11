@@ -128,12 +128,13 @@ data class BondDetails(
                 )
             } ?: faceValue
             val bondizationNonNull = bondization.map { payment ->
+                if (payment.isAmortization)
+                    cumFaceValue -= payment.valueNotNull
                 if (payment.hasValue)
                     payment
                 else {
                     calculationIsUnreliable = true
                     if (payment.isAmortization) {
-                        cumFaceValue -= lastNonNullAmortization?.value ?: 0.0
                         payment.copy(
                             value = lastNonNullAmortization?.value,
                             valuePercent = lastNonNullAmortization?.valuePercent
@@ -179,18 +180,15 @@ data class BondDetails(
                 val effectiveSellPrice = sellPrice - (sellPrice - bondCost) * tax
                 val couponValue = lastNonNullCoupon?.value ?: 0.0
                 val cleanCoupon = couponValue * (1 - tax)
-                val cleanReturn: Double =
-                    bondization.filter { it.isCoupon && it.hasValue && it.epochDay < lastKnownCouponEpochDay }
-                        .sumOf { it.valueNotNull } + effectiveSellPrice
+                val calculationBondization = bondization.filter { it.isCoupon && it.hasValue && it.epochDay <= lastKnownCouponEpochDay }
+                val cleanReturn: Double = calculationBondization.sumOf { it.valueNotNull } + effectiveSellPrice
+
                 val effectiveProfitRatePercentage: Double = if (investmentPeriod == 0)
                     0.0
                 else
                     xirr(mutableListOf<CashFlow>().apply xirr@{
                         add(CashFlow(-bondCost, investmentEpochDay))
-                        addAll(bondization.filter { it.isCoupon && it.hasValue && it.epochDay <= lastKnownCouponEpochDay }
-                            .map {
-                                it.cashFlowNotNull
-                            })
+                        addAll(calculationBondization.map { it.cashFlowNotNull })
                         add(CashFlow(effectiveSellPrice, lastKnownCouponEpochDay))
 
                         println("Calc no matDate:${bond.secId}:${bond.shortname}\n")
@@ -237,6 +235,7 @@ data class BondDetails(
                     Double.NaN,
                     couponRate,
                     bondization,
+                    calculationBondization,
                     coupons.size,
                     totalCouponValue,
                     faceValue
@@ -271,6 +270,8 @@ data class BondDetails(
                     }
                 }.toString())
             }) * 100
+
+            // TODO: effective return and all (NaN now)
 
             var effectiveBondProfit = 0.0
             val effectiveBondProfitPercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
@@ -352,6 +353,7 @@ data class BondDetails(
                 depositEffectiveProfitRatePercentage,
                 couponRate,
                 bondization,
+                bondizationNonNull,
                 coupons.size,
                 totalCouponValue,
                 faceValue
@@ -453,6 +455,7 @@ data class BondDetails(
 
         val nominalCouponRate: Double,
         val bondization: List<BondPayment>,
+        val calculationBondization: List<BondPayment>,
         val couponCount: Int,
         val totalCouponValue: Double,
         val faceValue: Double,
@@ -480,6 +483,7 @@ data class BondDetails(
                 depositReinvestProfit = depositReinvestProfit * ratio,
                 depositEffectiveProfit = depositEffectiveProfit * ratio,
                 bondization = bondization.map { it * ratio },
+                calculationBondization = calculationBondization.map { it * ratio },
                 totalCouponValue = totalCouponValue * ratio,
             )
         }
@@ -515,7 +519,7 @@ data class BondDetails(
                 depositEffectiveProfitReinvestPercentage = depositEffectiveProfitReinvestPercentage,
                 depositEffectiveProfitRatePercentage = depositEffectiveProfitRatePercentage,
                 nominalCouponRate = nominalCouponRate,
-                bondization = bondization,
+                bondization = calculationBondization,
                 couponCount = couponCount,
                 totalCouponValue = totalCouponValue
             )

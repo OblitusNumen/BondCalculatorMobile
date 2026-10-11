@@ -183,7 +183,7 @@ fun Bond(
             }
 
             if (bondizationShown)
-                BondizationDialog(calculateResult?.bondization, currency, { bondizationShown = false })
+                BondizationDialog(calculateResult?.bondization, calculateResult?.calculationBondization, currency, { bondizationShown = false })
         }
 
         //result

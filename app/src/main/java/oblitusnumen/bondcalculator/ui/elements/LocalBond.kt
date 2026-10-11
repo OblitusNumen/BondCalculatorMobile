@@ -173,7 +173,7 @@ fun Bond(
 
             // FIXME: add currency
             if (bondizationShown) {
-                BondizationDialog(calculateResult.bondization, "RUR", { bondizationShown = false })
+                BondizationDialog(calculateResult.bondization, null, "RUR", { bondizationShown = false })
             }
         }
 

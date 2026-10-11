@@ -7,11 +7,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,7 +19,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import oblitusnumen.bondcalculator.data.schema.BondPayment
-import oblitusnumen.bondcalculator.data.schema.BondPaymentType
 import oblitusnumen.bondcalculator.data.schema.LocalBond
 import oblitusnumen.bondcalculator.ui.formatCurrencyValue
 import oblitusnumen.bondcalculator.ui.formatDoublePercentage
@@ -30,6 +26,7 @@ import oblitusnumen.bondcalculator.ui.formatDoublePercentage
 @Composable
 fun BondizationDialog(
     bondization: List<BondPayment>?,
+    calculationBondization: List<BondPayment>? = null,
     currency: String = "RUR",
     onClose: () -> Unit
 ) {
@@ -56,8 +53,21 @@ fun BondizationDialog(
                 }
             }
 
+            var showCalculationBondization by remember { mutableStateOf(false) }
+            if (calculationBondization != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Text("Real", style = MaterialTheme.typography.bodySmall)
+                    Switch(checked = showCalculationBondization, onCheckedChange = { showCalculationBondization = it })
+                    Text("Calculation", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
             LazyColumn(state = rememberLazyListState()) {
-                bondization?.forEachIndexed { index, bondization ->
+                (if (showCalculationBondization) calculationBondization else bondization)?.forEachIndexed { index, bondization ->
                     item {
                         Row(
                             verticalAlignment = CenterVertically,
