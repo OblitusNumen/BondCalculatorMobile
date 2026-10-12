@@ -226,7 +226,9 @@ data class BondDetails(
                     cleanCoupon,
                     cleanProfitRatePercentage,
                     cleanReturn,
+                    Double.NaN,
                     cleanReturn - bondCost,
+                    Double.NaN,
                     effectiveProfitRatePercentage,
                     Double.NaN,
                     Double.NaN,
@@ -273,15 +275,17 @@ data class BondDetails(
 
             // TODO: effective return and all (NaN now)
 
-            var effectiveBondProfit = 0.0
+            fun calculateBondPaymentAmount(payment: BondPayment): Double = if (payment.isCoupon)
+                payment.valueNotNull * (1 - tax)
+            else
+                payment.valueNotNull * (1 - (1 - bondCost / faceValue) * tax)
+
+            var effectiveBondProfitReal = 0.0
             val effectiveBondProfitPercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
                 add(CashFlow(-bondCost, investmentEpochDay))
                 addAll(bondizationNonNull.map {
                     CashFlow(
-                        if (it.isCoupon)
-                            it.valueNotNull * (1 - tax)
-                        else
-                            it.valueNotNull * (1 - (1 - bondCost / faceValue) * tax),
+                        calculateBondPaymentAmount(it),
                         it.epochDay
                     )
                 })
@@ -292,8 +296,19 @@ data class BondDetails(
                         append("\n")
                     }
                 }.toString())
-                effectiveBondProfit = sumOf { it.amount }
+                effectiveBondProfitReal = sumOf { it.amount }
             }) * 100
+            val effectiveReinvestReturn = bondizationNonNull.map {
+                    calculateReturn(
+                        settings,
+                        ((maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()) - it.epochDay).toInt(),
+                        calculateBondPaymentAmount(it),
+                        effectiveBondProfitPercentage / 100
+                    )
+            }.sumOf { it }
+            val effectiveReinvestProfit: Double = effectiveReinvestReturn - bondCost
+            val reinvestProfit: Double = effectiveReinvestProfit - effectiveBondProfitReal
+            val effectiveProfitReinvestPercentage: Double = reinvestProfit / effectiveReinvestProfit * 100
 
             var depositEffectiveProfit = 0.0
             val depositEffectiveProfitRatePercentage: Double = xirr(mutableListOf<CashFlow>().apply xirr@{
@@ -303,10 +318,7 @@ data class BondDetails(
                         calculateReturn(
                             settings,
                             ((maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()) - it.epochDay).toInt(),
-                            if (it.isCoupon)
-                                it.valueNotNull * (1 - tax)
-                            else
-                                it.valueNotNull * (1 - (1 - bondCost / faceValue) * tax),
+                            calculateBondPaymentAmount(it),
                             settings.bondReinvestThruDepositPercentage / 100
                         ), maturityDate?.toEpochDay() ?: LocalDate.now().toEpochDay()
                     )
@@ -320,9 +332,8 @@ data class BondDetails(
                 }.toString())
                 depositEffectiveProfit = sumOf { it.amount }
             }) * 100
-            val depositReinvestProfit: Double = depositEffectiveProfit - effectiveBondProfit
+            val depositReinvestProfit: Double = depositEffectiveProfit - effectiveBondProfitReal
             val depositEffectiveProfitReinvestPercentage: Double = depositReinvestProfit / depositEffectiveProfit * 100
-
 
             return CalculateResult(
                 calculationIsUnreliable,
@@ -343,8 +354,10 @@ data class BondDetails(
                 cleanReturn,
                 cleanProfit,
                 cleanProfitRatePercentage,
-                effectiveBondProfit + bondCost,
-                effectiveBondProfit,
+                effectiveReinvestReturn,
+                reinvestProfit,
+                effectiveReinvestProfit,
+                effectiveProfitReinvestPercentage,
                 effectiveBondProfitPercentage,
                 depositEffectiveProfit + bondCost,
                 depositReinvestProfit,
@@ -444,7 +457,9 @@ data class BondDetails(
         val cleanProfitRatePercentage: Double,
 
         val effectiveReturn: Double,
+        val reinvestProfit: Double,
         val effectiveProfit: Double,
+        val effectiveProfitReinvestPercentage: Double,
         val effectiveProfitRatePercentage: Double,
 
         val depositEffectiveReturn: Double,
@@ -477,6 +492,7 @@ data class BondDetails(
                 cleanProfit = cleanProfit * ratio,
 
                 effectiveReturn = effectiveReturn * ratio,
+                reinvestProfit = reinvestProfit * ratio,
                 effectiveProfit = effectiveProfit * ratio,
 
                 depositEffectiveReturn = depositEffectiveReturn * ratio,
@@ -509,9 +525,9 @@ data class BondDetails(
                 cleanProfit = cleanProfit,
                 cleanProfitRatePercentage = cleanProfitRatePercentage,
                 effectiveReturn = effectiveReturn,
-                reinvestProfit = Double.NaN,
+                reinvestProfit = reinvestProfit,
                 effectiveProfit = effectiveProfit,
-                effectiveProfitReinvestPercentage = Double.NaN,
+                effectiveProfitReinvestPercentage = effectiveProfitReinvestPercentage,
                 effectiveProfitRatePercentage = effectiveProfitRatePercentage,
                 depositEffectiveReturn = depositEffectiveReturn,
                 depositReinvestProfit = depositReinvestProfit,
